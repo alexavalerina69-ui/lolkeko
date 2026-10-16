@@ -1,0 +1,16 @@
+{
+  "name": "rift-protocol",
+  "version": "0.1.0",
+  "description": "РАЗЛОМ — кооперативный хоррор-экстракшн. Играбельная 3D-вертикаль.",
+  "type": "module",
+  "scripts": {
+    "check": "esbuild src/main.js --bundle --outfile=/dev/null --format=esm --alias:three/addons/utils/BufferGeometryUtils.js=./lib/addons/utils/BufferGeometryUtils.js --alias:three=./lib/three.module.js",
+    "test": "node test/world-test.mjs && node test/sim-test.mjs",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.24.2",
+    "three": "0.170.0"
+  }
+}
