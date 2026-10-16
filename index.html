@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌑 СЕДЬМОЙ ДЕНЬ — хоррор-выживалка</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',Arial,sans-serif;color:#eee;}
+#gameWrap{position:fixed;inset:0;}
+#gameWrap canvas{display:block;}
+.hidden{display:none !important;}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;pointer-events:none;z-index:10;font-weight:bold;text-shadow:0 1px 3px #000;}
+#topBar{position:absolute;top:12px;left:50%;transform:translateX(-50%);font-size:19px;background:rgba(0,0,0,.5);padding:6px 20px;border-radius:20px;border:1px solid rgba(255,255,255,.18);white-space:nowrap;}
+#fps{position:absolute;top:12px;right:14px;font-size:13px;color:#8f8;background:rgba(0,0,0,.45);padding:4px 9px;border-radius:6px;font-family:monospace;}
+#bars{position:absolute;left:16px;bottom:16px;width:240px;}
+.barRow{display:flex;align-items:center;margin-top:6px;}
+.barLabel{width:26px;font-size:14px;filter:drop-shadow(0 0 2px #000);}
+.bar{flex:1;height:14px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.3);border-radius:7px;overflow:hidden;}
+.fill{height:100%;width:100%;transition:width .12s linear;}
+#crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:22px;color:#fff;opacity:.9;}
+#hint{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);background:rgba(0,0,0,.6);padding:7px 18px;border-radius:8px;font-size:16px;white-space:nowrap;}
+#messages{position:absolute;right:16px;bottom:16px;width:300px;text-align:right;pointer-events:none;}
+.msg{margin-top:6px;background:rgba(0,0,0,.65);display:inline-block;padding:6px 12px;border-radius:8px;animation:msgFade 3.2s forwards;font-size:14px;font-weight:normal;clear:both;float:right;}
+@keyframes msgFade{0%{opacity:0;transform:translateY(8px)}10%{opacity:1;transform:none}80%{opacity:1}100%{opacity:0}}
+#bigText{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:40px;opacity:0;transition:opacity .2s;text-align:center;white-space:nowrap;}
+#bigText.show{opacity:1;}
+#bigText.glitch{color:#ff3b3b;animation:jitter .08s infinite;text-shadow:0 0 12px #f00;}
+#bigText.huge{font-size:84px;}
+@keyframes jitter{0%{transform:translateX(-50%) translate(2px,1px)}25%{transform:translateX(-50%) translate(-2px,-1px)}50%{transform:translateX(-50%) translate(1px,2px)}75%{transform:translateX(-50%) translate(-1px,-2px)}100%{transform:translateX(-50%) translate(2px,1px)}}
+#sunsetWarn{position:absolute;top:62px;left:50%;transform:translateX(-50%);color:#ffb347;font-size:18px;display:none;animation:sunsetBlink 1s infinite;}
+@keyframes sunsetBlink{50%{opacity:.4}}
+
+/* ---------- Эффекты ---------- */
+#damageFlash{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(255,0,0,.25) 0%,rgba(180,0,0,.55) 100%);opacity:0;pointer-events:none;z-index:30;}
+#redFlash{position:fixed;inset:0;background:#a00;opacity:0;pointer-events:none;z-index:60;transition:opacity .4s;}
+#redFlash.on{opacity:.85;transition:opacity .05s;}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.6) 100%);}
+#flickerFigure{position:fixed;left:62%;top:26%;width:110px;z-index:25;display:none;opacity:.85;filter:blur(1px) drop-shadow(0 0 14px #800);}
+#glitchWord{position:fixed;z-index:45;font-size:46px;color:#f4f;font-weight:bold;display:none;text-shadow:0 0 14px #f0f;animation:jitter .08s infinite;pointer-events:none;}
+.shakeAnim{animation:shakeAnim .4s infinite !important;}
+@keyframes shakeAnim{0%{transform:translate(0,0)}20%{transform:translate(-12px,6px)}40%{transform:translate(10px,-8px)}60%{transform:translate(-8px,-10px)}80%{transform:translate(9px,7px)}100%{transform:translate(0,0)}}
+
+/* ---------- Оверлеи ---------- */
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);flex-direction:column;}
+.panel{background:#14141d;border:2px solid #3a3a58;border-radius:14px;padding:24px 30px;min-width:360px;max-width:600px;max-height:84vh;overflow:auto;box-shadow:0 0 50px rgba(120,0,180,.28);text-align:center;}
+.panel h2{margin-bottom:12px;font-size:24px;}
+.panel .tip{margin-top:12px;font-size:12px;color:#888;}
+.btn{display:block;width:100%;margin:10px 0;padding:13px;font-size:18px;background:#1f1f2e;color:#eee;border:1px solid #55557e;border-radius:10px;cursor:pointer;font-family:inherit;}
+.btn:hover{background:#2d2d44;border-color:#8a5cff;}
+.btn:disabled{opacity:.35;cursor:default;}
+.btn:disabled:hover{background:#1f1f2e;border-color:#55557e;}
+.grid{display:grid;grid-template-columns:repeat(5,60px);gap:7px;justify-content:center;margin:10px 0;}
+.slot{width:60px;height:60px;background:#0b0b12;border:1px solid #3a3a5e;border-radius:8px;position:relative;cursor:pointer;font-size:27px;display:flex;align-items:center;justify-content:center;}
+.slot:hover{border-color:#8a5cff;background:#151524;}
+.slot .cnt{position:absolute;right:4px;bottom:2px;font-size:13px;color:#ffd76a;font-weight:bold;text-shadow:0 1px 2px #000;}
+.slot .nm{position:absolute;left:2px;top:1px;font-size:8px;color:#777;}
+.craftBtn{display:flex;justify-content:space-between;align-items:center;width:100%;margin:7px 0;padding:10px 14px;background:#1b1b29;border:1px solid #4a4a70;border-radius:10px;cursor:pointer;color:#eee;font-size:15px;text-align:left;font-family:inherit;}
+.craftBtn:hover{background:#28283e;border-color:#8a5cff;}
+.craftBtn.off{opacity:.4;cursor:default;}
+.craftBtn.off:hover{background:#1b1b29;border-color:#4a4a70;}
+.craftBtn .nm{font-size:16px;font-weight:bold;}
+.craftBtn small{color:#999;display:block;font-weight:normal;}
+#mapCanvas{background:#000;border:2px solid #3a3a58;border-radius:8px;image-rendering:pixelated;}
+
+/* ---------- Меню ---------- */
+#menu{background:#050506;z-index:80;}
+#menu .menuInner{text-align:center;animation:menuGlow 3s ease-in-out infinite;padding:40px 60px;border-radius:20px;}
+@keyframes menuGlow{0%,100%{box-shadow:0 0 60px rgba(160,0,0,.25)}50%{box-shadow:0 0 120px rgba(200,0,0,.55)}}
+#menu h1{font-size:52px;margin-bottom:8px;text-shadow:0 0 30px #a00;letter-spacing:2px;}
+#menu .subtitle{color:#a77;margin-bottom:30px;font-size:18px;font-style:italic;}
+#menu .btns{width:320px;margin:0 auto;}
+#menu .controls{margin-top:34px;font-size:12px;color:#666;line-height:1.9;}
+#death h1{font-size:46px;color:#e33;text-shadow:0 0 30px #900;margin-bottom:22px;}
+#death .btns, #pause .btns{width:300px;margin:0 auto;}
+#fatal{background:#000;z-index:200;font-family:'Courier New',monospace;}
+#fatal pre{color:#0f0;font-size:20px;text-align:left;line-height:1.7;}
+#endingOverlay{background:#fff;color:#111;z-index:150;}
+#endingOverlay h2{font-size:30px;margin-bottom:14px;}
+#endingOverlay p{font-size:17px;margin-bottom:24px;color:#333;}
+#endingOverlay .btn{width:280px;background:#111;color:#fff;border:none;}
+#endingOverlay .btn:hover{background:#333;}
+h2.pauset{margin-bottom:18px;}
+</style>
+</head>
+<body>
+<div id="gameWrap"></div>
+
+<!-- ================= HUD ================= -->
+<div id="hud" class="hidden">
+  <div id="topBar"><span id="dayText">День 1</span> &nbsp;|&nbsp; <span id="timeText">☀️ День</span></div>
+  <div id="fps">60 FPS</div>
+  <div id="bars">
+    <div class="barRow"><span class="barLabel">❤️</span><div class="bar"><div id="barHp" class="fill" style="background:#e02c2c"></div></div></div>
+    <div class="barRow"><span class="barLabel">⚡</span><div class="bar"><div id="barSt" class="fill" style="background:#f2c018"></div></div></div>
+    <div class="barRow"><span class="barLabel">🧠</span><div class="bar"><div id="barSa" class="fill" style="background:#a55eea"></div></div></div>
+    <div class="barRow"><span class="barLabel">🔦</span><div class="bar"><div id="barBa" class="fill" style="background:#e8e8e8"></div></div></div>
+  </div>
+  <div id="crosshair">+</div>
+  <div id="hint"></div>
+  <div id="messages"></div>
+  <div id="bigText"></div>
+  <div id="sunsetWarn">☀️ Солнце садится...</div>
+</div>
+<div id="vignette"></div>
+<div id="damageFlash"></div>
+<div id="redFlash"></div>
+<div id="flickerFigure"><svg viewBox="0 0 60 140" width="110"><g fill="#5a0808"><ellipse cx="30" cy="17" rx="12" ry="14"/><path d="M30 30 C 11 38 9 70 13 96 L 19 96 L 23 68 L 25 96 L 25 138 L 35 138 L 35 96 L 37 68 L 41 96 L 47 96 C 51 70 49 38 30 30 Z"/></g></svg></div>
+<div id="glitchWord"></div>
+
+<!-- ================= МЕНЮ ================= -->
+<div id="menu" class="overlay">
+  <div class="menuInner">
+    <h1>🌑 СЕДЬМОЙ ДЕНЬ</h1>
+    <div class="subtitle">Выживи. Если сможешь.</div>
+    <div class="btns">
+      <button id="btnNew" class="btn">▶️ Новая игра</button>
+      <button id="btnContinue" class="btn">📂 Продолжить</button>
+    </div>
+    <div class="controls">
+      WASD — движение &nbsp;|&nbsp; Мышь — обзор &nbsp;|&nbsp; Shift — бег &nbsp;|&nbsp; Space — прыжок<br>
+      ЛКМ — атака / добыча &nbsp;|&nbsp; E — взаимодействие &nbsp;|&nbsp; F — фонарик<br>
+      I — инвентарь &nbsp;|&nbsp; C — крафт &nbsp;|&nbsp; Tab — карта &nbsp;|&nbsp; ESC — пауза<br>
+      Молитва в церкви очищает рассудок. Костёр отпугивает тварей. Не смотри на неё.
+    </div>
+  </div>
+</div>
+
+<!-- ================= ПАУЗА ================= -->
+<div id="pause" class="overlay hidden">
+  <div class="panel">
+    <h2 class="pauset">⏸ Пауза</h2>
+    <div class="btns">
+      <button id="btnResume" class="btn">▶️ Продолжить</button>
+      <button id="btnToMenu" class="btn">🏠 В главное меню</button>
+    </div>
+    <p class="tip">Автосохранение — каждые 7 дней на рассвете.<br>WASD — движение | ЛКМ — атака | E — действие | F — фонарик | I — инвентарь | C — крафт | Tab — карта</p>
+  </div>
+</div>
+
+<!-- ================= ИНВЕНТАРЬ ================= -->
+<div id="inventory" class="overlay hidden">
+  <div class="panel">
+    <h2>🎒 Инвентарь</h2>
+    <div id="invGrid" class="grid"></div>
+    <p class="tip">Клик по 🩹 — использовать (+25 HP) &nbsp;|&nbsp; Клик по 🔥 — зажечь факел (30 сек)<br>I / ESC — закрыть</p>
+  </div>
+</div>
+
+<!-- ================= КРАФТ ================= -->
+<div id="craft" class="overlay hidden">
+  <div class="panel">
+    <h2>🛠️ Крафт</h2>
+    <div id="craftList"></div>
+    <p class="tip">C / ESC — закрыть</p>
+  </div>
+</div>
+
+<!-- ================= ТОРГОВЛЯ ================= -->
+<div id="trade" class="overlay hidden">
+  <div class="panel">
+    <h2>💜 Торговец</h2>
+    <p style="font-size:13px;color:#a8f;margin-bottom:8px">«Кровь — лучшая валюта в этом лесу»</p>
+    <div id="tradeList"></div>
+    <p class="tip">ESC — закрыть</p>
+  </div>
+</div>
+
+<!-- ================= КАРТА ================= -->
+<div id="mapOverlay" class="overlay hidden">
+  <div class="panel">
+    <h2>🗺️ Карта</h2>
+    <canvas id="mapCanvas" width="300" height="300" style="width:460px;height:460px"></canvas>
+    <p class="tip">Tab / ESC — закрыть &nbsp;|&nbsp; Туман войны рассеивается по мере исследования</p>
+  </div>
+</div>
+
+<!-- ================= СУНДУК ================= -->
+<div id="chestUI" class="overlay hidden">
+  <div class="panel">
+    <h2>📦 Сундук</h2>
+    <div id="chestGrid" class="grid"></div>
+    <h2 style="font-size:17px;margin-top:14px">🎒 Инвентарь</h2>
+    <div id="chestInvGrid" class="grid"></div>
+    <p class="tip">Клик — переложить стопку &nbsp;|&nbsp; ESC — закрыть</p>
+  </div>
+</div>
+
+<!-- ================= СМЕРТЬ ================= -->
+<div id="death" class="overlay hidden">
+  <h1 id="deathText">💀 ТЫ МЁРТВ. День 1.</h1>
+  <div class="btns">
+    <button id="btnLoadSave" class="btn">📂 Загрузить сохранение</button>
+    <button id="btnRestart" class="btn">🔄 Начать заново</button>
+  </div>
+</div>
+
+<!-- ================= ФЕЙКОВЫЙ КРАШ ================= -->
+<div id="fatal" class="overlay hidden">
+<pre>
+ *** SYSTEM FAILURE ***
+ FATAL ERROR: cat_overflow
+ at purr.core (0xCAT0000)
+ patience.dll not found
+</pre>
+</div>
+
+<!-- ================= КОНЦОВКА ================= -->
+<div id="endingOverlay" class="overlay hidden">
+  <h2>Ты выжил. 1000 дней.</h2>
+  <p>Потрогай настоящую траву.</p>
+  <button id="btnThanks" class="btn">Спасибо за игру</button>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   🌑 СЕДЬМОЙ ДЕНЬ — хоррор-выживалка. Один файл. Three.js r128.
+   ============================================================================ */
+
+/* ============================== КОНСТАНТЫ ============================== */
+var MAP_SIZE = 300, MAP_BOUND = MAP_SIZE/2 - 4;
+var DAY_LEN = 60, DAY_T = 36, NIGHT_T = 24; // 60 сек = 1 день (36 день / 24 ночь)
+var EYE = 1.7, GRAV = 22, JUMP_V = 7.5, WALK_SPD = 6, SPRINT_MUL = 1.7;
+var SAVE_KEY = 'sedmoy_den_save_v1';
+var TREE_COUNT = 150, ROCK_COUNT = 80;
+
+var ITEMS = {
+  wood:   {icon:'🪵', name:'Дерево'},
+  stone:  {icon:'🪨', name:'Камень'},
+  bandage:{icon:'🩹', name:'Бинт'},
+  torch:  {icon:'🔥', name:'Факел'},
+  blood:  {icon:'🩸', name:'Кровь'}
+};
+var RECIPES = [
+  {id:'bandage', icon:'🩹', name:'Бинт',             cost:{wood:2},           desc:'Лечит +25 HP (используется из инвентаря)'},
+  {id:'torch',   icon:'🔥', name:'Факел',            cost:{wood:1},           desc:'Свет 30 сек (используется из инвентаря)'},
+  {id:'wall',    icon:'🏠', name:'Деревянная стена', cost:{wood:5},           desc:'Сетка 4×4, HP 100'},
+  {id:'chest',   icon:'📦', name:'Сундук',           cost:{wood:3, stone:2},  desc:'+10 слотов хранения'},
+  {id:'fire',    icon:'🔥', name:'Костёр',           cost:{wood:3, stone:1},  desc:'Отпугивает мобов, горит 120 сек'}
+];
+var TRADE = [
+  {id:'crystal', icon:'💎', name:'Сейв-кристалл', cost:{blood:5}, desc:'Сохранить игру прямо сейчас'},
+  {id:'map',     icon:'🗺️', name:'Карта',         cost:{blood:3}, desc:'Открыть весь туман войны'},
+  {id:'medkit',  icon:'🩹', name:'Аптечка',       cost:{blood:2}, desc:'+50 HP'},
+  {id:'battery', icon:'🔦', name:'Батарейка',     cost:{blood:1}, desc:'Фонарик на 100%'}
+];
+var ACHIVS = [
+  [7,'🥉 Первая неделя'],[14,'🥈 Двухнедельный'],[30,'🏅 Выживший'],[50,'🏕️ Кочевник'],
+  [100,'⚔️ Ветеран'],[200,'🛡️ Легенда'],[300,'🤪 Сумасшедший'],[500,'👑 Бессмертный'],
+  [750,'⚡ Бог'],[999,'🌑 Почти...']
+];
+var GLITCH_WORDS = ['БЕГИ','ОН ЗНАЕТ','НЕ ОБОРАЧИВАЙСЯ','ЭТО НЕ РЕАЛЬНО'];
+var WHISPER_LIES = ['⚠ Моб СЗАДИ!','Ты слышишь шаги за спиной...','Церковь ГОРИТ!','Торговец мёртв.','Твоя база разрушена','Он уже в доме','Не спи. Не спи. Не спи.'];
+
+/* ============================== СОСТОЯНИЕ ============================== */
+var G = {
+  mode: 'menu',            // menu | playing | dead
+  overlayOpen: null,       // id открытого оверлея
+  day: 1, time: 2, elapsed: 0,
+  prayedToday: false,
+  placement: null, ghostValid: false,
+  ach: {},
+  mapRevealed: false,
+  cat: null, catRespawnDay: 0,
+  whisper: {active:false, t:0, invertT:0, nextInvert:0, lieT:0, queue:[]},
+  collFx: {t:0, wordT:0, filterT:0, mob:null},
+  ending: false,
+  hintLie: '', hintLieT: 0,
+  flickT: 15, lieBigT: 10, jerkT: 0, jerkNext: 6, delayNext: 12, invertNext: 30, phantomNext: 8,
+  dmgFlash: 0,
+  currentTarget: null
+};
+var player = {
+  yaw: 0, pitch: 0, vy: 0, onGround: true,
+  hp: 100, stamina: 100, sanity: 0, battery: 100,
+  flashlightOn: false, attackCd: 0, invertT: 0, delayT: 0,
+  stationaryTime: 0, baseY: EYE, bobT: 0
+};
+var keys = {};
+
+/* ============================== THREE ============================== */
+var scene, camera, renderer, sunLight, ambient, flash, flashTarget, torchLight, stars;
+var trees = [], rocks = [], mobs = [], builds = [], phantoms = [];
+var solids = [];        // {x,z,r} круглые препятствия
+var wallColliders = []; // {x0,x1,z0,z1} AABB стен
+var rayList = [];       // объекты для рейкаста
+var pulseList = [];     // деревья/камни с анимацией удара
+var churchRef = null, traderRef = null, altarEnt = null, grassCube = null;
+var fogCanvas, fogCtx, fogTimer = 0;
+var raycaster, centerVec, tmpV1, tmpV2, tmpC1;
+
+function $(id){ return document.getElementById(id); }
+function rand(a,b){ return a + Math.random()*(b-a); }
+function randInt(a,b){ return Math.floor(rand(a, b+1)); }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+function lamb(c){ return new THREE.MeshLambertMaterial({color:c}); }
+function isDayNow(){ return G.time < DAY_T; }
+function isTraderDay(){ return G.day === 1 || ((G.day-1) % 7 === 0); }
+
+/* ============================== ИНИЦИАЛИЗАЦИЯ ============================== */
+function initThree(){
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+  scene.fog = new THREE.Fog(0x87ceeb, 45, 150);
+  camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
+  camera.rotation.order = 'YXZ';
+  camera.position.set(0, EYE, 0);
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  $('gameWrap').appendChild(renderer.domElement);
+
+  ambient = new THREE.AmbientLight(0xaabbcc, 0.55); scene.add(ambient);
+  sunLight = new THREE.DirectionalLight(0xfff1d6, 1.0); scene.add(sunLight);
+
+  // фонарик
+  flash = new THREE.SpotLight(0xfff2cc, 0, 42, 0.5, 0.4, 1);
+  flashTarget = new THREE.Object3D(); scene.add(flashTarget);
+  flash.target = flashTarget; scene.add(flash);
+
+  // факел (свет рядом с игроком)
+  torchLight = new THREE.PointLight(0xff8c30, 0, 12); scene.add(torchLight);
+
+  // земля
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(MAP_SIZE, MAP_SIZE), lamb(0x2f6b1f));
+  ground.rotation.x = -Math.PI/2; scene.add(ground);
+
+  // звёзды
+  var sp = [];
+  for (var i=0;i<420;i++){
+    var a = Math.random()*Math.PI*2, e = Math.acos(Math.random()), r = 230;
+    var y = Math.cos(e)*r;
+    if (y < 15) y = 15 + Math.random()*80;
+    sp.push(Math.sin(e)*Math.cos(a)*r, y, Math.sin(e)*Math.sin(a)*r);
+  }
+  var sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
+  stars = new THREE.Points(sg, new THREE.PointsMaterial({color:0xffffff, size:1.4, sizeAttenuation:false, transparent:true, opacity:0}));
+  scene.add(stars);
+
+  raycaster = new THREE.Raycaster();
+  centerVec = new THREE.Vector2(0,0);
+  tmpV1 = new THREE.Vector3(); tmpV2 = new THREE.Vector3(); tmpC1 = new THREE.Color();
+
+  window.addEventListener('resize', function(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+/* ============================== МИР: ДЕРЕВЬЯ/КАМНИ ============================== */
+function addTree(x, z, hp){
+  var g = new THREE.Group();
+  var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.38, 4, 7), lamb(0x6b4423));
+  trunk.position.y = 2; g.add(trunk);
+  var green = 0x1c5a1c + (randInt(-2,2) * 0x000800);
+  var crown = new THREE.Mesh(new THREE.ConeGeometry(rand(1.5,1.9), rand(3.4,4.2), 8), lamb(green));
+  crown.position.y = 5; g.add(crown);
+  g.position.set(x, 0, z);
+  g.rotation.y = Math.random()*Math.PI*2;
+  var t = {kind:'tree', x:x, z:z, hp:(hp||3), g:g};
+  g.userData.ent = {kind:'tree', ref:t};
+  g.traverse(function(o){ o.userData.ent = g.userData.ent; });
+  scene.add(g);
+  trees.push(t); rayList.push(g);
+  solids.push({x:x, z:z, r:0.5, ref:t});
+  return t;
+}
+function removeTree(t){
+  scene.remove(t.g);
+  trees.splice(trees.indexOf(t),1);
+  rayList.splice(rayList.indexOf(t.g),1);
+  for (var i=solids.length-1;i>=0;i--) if (solids[i].ref===t){ solids.splice(i,1); break; }
+  for (var j=pulseList.length-1;j>=0;j--) if (pulseList[j].ref===t) pulseList.splice(j,1);
+}
+function addRock(x, z, hp){
+  var r = rand(0.6, 1.1);
+  var m = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), lamb(0x74747c + randInt(-1,1)*0x080808));
+  m.scale.y = 0.7; m.position.set(x, r*0.35, z);
+  var rk = {kind:'rock', x:x, z:z, hp:(hp||3), g:m, r:r};
+  m.userData.ent = {kind:'rock', ref:rk};
+  scene.add(m);
+  rocks.push(rk); rayList.push(m);
+  solids.push({x:x, z:z, r:r+0.2, ref:rk});
+  return rk;
+}
+function removeRock(rk){
+  scene.remove(rk.g);
+  rocks.splice(rocks.indexOf(rk),1);
+  rayList.splice(rayList.indexOf(rk.g),1);
+  for (var i=solids.length-1;i>=0;i--) if (solids[i].ref===rk){ solids.splice(i,1); break; }
+}
+
+/* ============================== ЦЕРКОВЬ ============================== */
+function buildChurch(cx, cz){
+  var g = new THREE.Group();
+  var white = lamb(0xf2f2e8);
+  function wall(w,h,d,x,y,z){ var m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), white); m.position.set(x,y,z); g.add(m); return m; }
+  wall(8,5,0.4, 0,2.5,-4);            // задняя
+  wall(0.4,5,8, -4,2.5,0);            // левая
+  wall(0.4,5,8,  4,2.5,0);            // правая
+  wall(2.6,5,0.4, -2.7,2.5,4);        // передняя левая
+  wall(2.6,5,0.4,  2.7,2.5,4);        // передняя правая (дверной проём 2.8)
+  wall(8.6,0.4,8.6, 0,5.2,0);         // крыша
+  var cross = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), lamb(0xffd23e));
+  cross.position.set(0,5.95,0); g.add(cross);
+  var altar = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.8), lamb(0xffc832));
+  altar.position.set(0,0.9,-2.6); g.add(altar);
+  var altarBase = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.5,1.2), lamb(0xbf9a2e));
+  altarBase.position.set(0,0.25,-2.6); g.add(altarBase);
+  g.position.set(cx, 0, cz);
+  scene.add(g);
+  churchRef = g;
+  // коллизии стен (церковь выровнена по осям)
+  function aabb(hx,hz,px,pz){ wallColliders.push({x0:cx+px-hx, x1:cx+px+hx, z0:cz+pz-hz, z1:cz+pz+hz}); }
+  aabb(4,0.2, 0,-4); aabb(0.2,4, -4,0); aabb(0.2,4, 4,0);
+  aabb(1.3,0.2, -2.7,4); aabb(1.3,0.2, 2.7,4);
+  solids.push({x:cx, z:cz-2.6, r:0.85});  // алтарь
+  altarEnt = {kind:'altar'};
+  altar.userData.ent = altarEnt; altarBase.userData.ent = altarEnt;
+  rayList.push(altar); rayList.push(altarBase);
+}
+
+/* ============================== ТОРГОВЕЦ (место) ============================== */
+function buildTraderSpot(tx, tz){
+  var g = new THREE.Group();
+  var body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.62, 1.9, 10), lamb(0x55555f));
+  body.position.y = 0.95; g.add(body);
+  var hood = new THREE.Mesh(new THREE.ConeGeometry(0.55, 0.95, 9), lamb(0x38383f));
+  hood.position.y = 2.2; g.add(hood);
+  var pl = new THREE.PointLight(0xa050ff, 1.5, 18); pl.position.y = 1.4; g.add(pl);
+  // фиолетовые частицы
+  var pp = [];
+  for (var i=0;i<26;i++) pp.push(rand(-.7,.7), rand(0,2.2), rand(-.7,.7));
+  var pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pp,3));
+  var pts = new THREE.Points(pg, new THREE.PointsMaterial({color:0xc070ff, size:0.16, transparent:true, opacity:0.9}));
+  g.add(pts);
+  g.position.set(tx, 0, tz);
+  g.visible = false;
+  scene.add(g);
+  traderRef = {g:g, x:tx, z:tz, active:false, pts:pts, light:pl};
+  g.userData.ent = {kind:'trader'};
+  g.traverse(function(o){ o.userData.ent = g.userData.ent; });
+  rayList.push(g);
+  solids.push({x:tx, z:tz, r:0.8, trader:true});
+}
+function setTraderActive(on){
+  var was = traderRef.active;
+  traderRef.active = on; traderRef.g.visible = on;
+  if (on && !was && G.mode==='playing') msg('💜 Торговец появился в лесу (фиолетовый огонь)');
+  if (!on && was && G.mode==='playing') msg('💜 Торговец растворился во тьме...');
+}
+
+/* ============================== ПОСТРОЙКИ ============================== */
+function addWall(x, z, ry, hp){
+  var m = new THREE.Mesh(new THREE.BoxGeometry(4,3,0.3), lamb(0x8a5a28));
+  m.position.set(x, 1.5, z); m.rotation.y = ry;
+  scene.add(m);
+  var c = Math.abs(Math.cos(ry)) > 0.7;
+  var hx = c ? 2 : 0.15, hz = c ? 0.15 : 2;
+  var b = {t:'wall', g:m, hp:(hp||100)};
+  wallColliders.push({x0:x-hx, x1:x+hx, z0:z-hz, z1:z+hz, ref:b});
+  builds.push(b);
+  return b;
+}
+function addChest(x, z, items){
+  var m = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), lamb(0x6f4a21));
+  m.position.set(x, 0.5, z);
+  var ent = {kind:'chest', ref:null};
+  var b = {t:'chest', g:m, items:(items || new Array(10).fill(null))};
+  ent.ref = b;
+  m.userData.ent = ent;
+  scene.add(m);
+  builds.push(b); rayList.push(m);
+  solids.push({x:x, z:z, r:0.75, ref:b});
+  return b;
+}
+function addFire(x, z, fuel){
+  var g = new THREE.Group();
+  var base = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.5), lamb(0x3a2a1a));
+  base.position.y = 0.1; g.add(base);
+  var pl = new THREE.PointLight(0xff7b25, 1.5, 15); pl.position.y = 0.7; g.add(pl);
+  var pp = [];
+  for (var i=0;i<16;i++) pp.push(rand(-.25,.25), rand(0,.9), rand(-.25,.25));
+  var pg = new THREE.BufferGeometry();
+  pg.setAttribute('position', new THREE.Float32BufferAttribute(pp,3));
+  var pts = new THREE.Points(pg, new THREE.PointsMaterial({color:0xffa040, size:0.14, transparent:true, opacity:0.95}));
+  pts.position.y = 0.15; g.add(pts);
+  g.position.set(x, 0, z);
+  scene.add(g);
+  var b = {t:'fire', g:g, fuel:(fuel||120), light:pl, pts:pts};
+  builds.push(b);
+  return b;
+}
+function removeBuild(b){
+  scene.remove(b.g);
+  var i = builds.indexOf(b); if (i>=0) builds.splice(i,1);
+  if (b.t==='chest'){
+    var ri = rayList.indexOf(b.g); if (ri>=0) rayList.splice(ri,1);
+    for (var j=solids.length-1;j>=0;j--) if (solids[j].ref===b){ solids.splice(j,1); break; }
+  }
+  if (b.t==='wall'){
+    for (var k=wallColliders.length-1;k>=0;k--) if (wallColliders[k].ref===b){ wallColliders.splice(k,1); break; }
+  }
+}
+function fireNear(x, z, r){
+  for (var i=0;i<builds.length;i++){
+    var b = builds[i];
+    if (b.t !== 'fire' || b.fuel <= 0) continue;
+    var dx = b.g.position.x - x, dz = b.g.position.z - z;
+    if (dx*dx + dz*dz < r*r) return b;
+  }
+  return null;
+}
+
+/* ============================== ИНВЕНТАРЬ ============================== */
+var inventory = new Array(20).fill(null);
+function countItem(type){
+  var n = 0;
+  for (var i=0;i<inventory.length;i++) if (inventory[i] && inventory[i].type===type) n += inventory[i].count;
+  return n;
+}
+function addItem(type, n, silent){
+  n = n || 1;
+  var i;
+  for (i=0;i<inventory.length;i++) if (inventory[i] && inventory[i].type===type){ inventory[i].count += n; if(!silent) resToast(type, n); return true; }
+  for (i=0;i<inventory.length;i++) if (!inventory[i]){ inventory[i] = {type:type, count:n}; if(!silent) resToast(type, n); return true; }
+  msg('🎒 Инвентарь полон!');
+  return false;
+}
+var lastResToast = 0;
+function resToast(type, n){
+  var now = performance.now();
+  if (now - lastResToast > 1200){ lastResToast = now; msg('+'+n+' '+ITEMS[type].icon+' '+ITEMS[type].name); }
+}
+function removeItems(type, n){
+  for (var i=inventory.length-1;i>=0;i--){
+    var s = inventory[i];
+    if (s && s.type===type){
+      var take = Math.min(s.count, n);
+      s.count -= take; n -= take;
+      if (s.count <= 0) inventory[i] = null;
+      if (n <= 0) return true;
+    }
+  }
+  return false;
+}
+function canAfford(cost){
+  for (var k in cost) if (countItem(k) < cost[k]) return false;
+  return true;
+}
+function payCost(cost){ for (var k in cost) removeItems(k, cost[k]); }
+function costText(cost){
+  return Object.keys(cost).map(function(k){ return cost[k]+ITEMS[k].icon; }).join(' + ');
+}
+function renderSlots(el, arr, onClick){
+  el.innerHTML = '';
+  for (var i=0;i<arr.length;i++){
+    (function(idx){
+      var d = document.createElement('div');
+      d.className = 'slot';
+      var s = arr[idx];
+      if (s){
+        d.innerHTML = ITEMS[s.type].icon + '<span class="cnt">'+s.count+'</span><span class="nm">'+ITEMS[s.type].name+'</span>';
+        d.title = ITEMS[s.type].name;
+        if (onClick) d.onclick = function(){ onClick(idx); };
+      }
+      el.appendChild(d);
+    })(i);
+  }
+}
+function renderInventory(){ renderSlots($('invGrid'), inventory, useSlot); }
+function useSlot(idx){
+  var s = inventory[idx]; if (!s) return;
+  if (s.type === 'bandage'){
+    if (player.hp >= 100){ msg('❤️ Здоровье уже полное'); return; }
+    player.hp = Math.min(100, player.hp + 25);
+    if (--s.count <= 0) inventory[idx] = null;
+    msg('🩹 +25 HP');
+  } else if (s.type === 'torch'){
+    if (G.torchT > 0){ msg('🔥 Факел уже горит'); return; }
+    G.torchT = 30;
+    if (--s.count <= 0) inventory[idx] = null;
+    msg('🔥 Факел горит 30 сек');
+  }
+  renderInventory();
+}
+
+/* ============================== КРАФТ ============================== */
+function renderCraft(){
+  var list = $('craftList'); list.innerHTML = '';
+  RECIPES.forEach(function(r){
+    var ok = canAfford(r.cost);
+    var b = document.createElement('button');
+    b.className = 'craftBtn' + (ok ? '' : ' off');
+    b.innerHTML = '<span><span class="nm">'+r.icon+' '+r.name+'</span><small>'+r.desc+'</small></span><span style="white-space:nowrap;margin-left:12px">'+costText(r.cost)+'</span>';
+    if (ok) b.onclick = function(){ doCraft(r.id); };
+    list.appendChild(b);
+  });
+}
+function doCraft(id){
+  if (id === 'bandage'){ payCost({wood:2}); addItem('bandage',1,true); msg('🩹 Бинт создан'); renderCraft(); }
+  else if (id === 'torch'){ payCost({wood:1}); addItem('torch',1,true); msg('🔥 Факел создан'); renderCraft(); }
+  else if (id === 'wall'){ closeOverlay(); startPlacement(); }
+  else if (id === 'chest'){ payCost({wood:3,stone:2}); placeAhead('chest'); renderCraft(); }
+  else if (id === 'fire'){ payCost({wood:3,stone:1}); placeAhead('fire'); renderCraft(); }
+}
+function placeAhead(kind){
+  var fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  var x = clamp(camera.position.x + fx*3, -MAP_BOUND, MAP_BOUND);
+  var z = clamp(camera.position.z + fz*3, -MAP_BOUND, MAP_BOUND);
+  if (kind === 'chest'){ addChest(x, z); msg('📦 Сундук установлен ([E] — открыть)'); }
+  else { addFire(x, z, 120); msg('🔥 Костёр горит. Мобы держатся на расстоянии.'); }
+}
+
+/* ============================== СТРОИТЕЛЬСТВО (ghost) ============================== */
+var ghostMesh = null;
+function startPlacement(){
+  if (countItem('wood') < 5){ msg('Нужно 5 🪵 для стены'); return; }
+  if (!ghostMesh){
+    ghostMesh = new THREE.Mesh(new THREE.BoxGeometry(4,3,0.3),
+      new THREE.MeshBasicMaterial({color:0x00ff44, transparent:true, opacity:0.4, depthWrite:false}));
+  }
+  scene.add(ghostMesh);
+  G.placement = true;
+  msg('🏠 Режим строительства: ЛКМ — поставить, ПКМ/ESC — отмена');
+}
+function cancelPlacement(){
+  if (ghostMesh) scene.remove(ghostMesh);
+  G.placement = false;
+}
+function updateGhost(){
+  camera.getWorldDirection(tmpV1);
+  var px, pz;
+  if (tmpV1.y < -0.08){
+    var t = Math.min(camera.position.y / -tmpV1.y, 10);
+    px = camera.position.x + tmpV1.x*t; pz = camera.position.z + tmpV1.z*t;
+  } else {
+    px = camera.position.x + tmpV1.x*4; pz = camera.position.z + tmpV1.z*4;
+  }
+  var gx = Math.round(px/4)*4, gz = Math.round(pz/4)*4;
+  var ry = Math.round(player.yaw / (Math.PI/2)) * (Math.PI/2);
+  ghostMesh.position.set(gx, 1.5, gz);
+  ghostMesh.rotation.y = ry;
+  var c = Math.abs(Math.cos(ry)) > 0.7;
+  var hx = c ? 2 : 0.15, hz = c ? 0.15 : 2;
+  var valid = gx > -MAP_BOUND+2 && gx < MAP_BOUND-2 && gz > -MAP_BOUND+2 && gz < MAP_BOUND-2;
+  if (valid){
+    for (var i=0;i<wallColliders.length;i++){
+      var w = wallColliders[i];
+      if (gx-hx < w.x1-0.05 && gx+hx > w.x0+0.05 && gz-hz < w.z1-0.05 && gz+hz > w.z0+0.05){ valid = false; break; }
+    }
+  }
+  G.ghostValid = valid;
+  ghostMesh.material.color.setHex(valid ? 0x00ff44 : 0xff2222);
+  G.ghostX = gx; G.ghostZ = gz; G.ghostRy = ry;
+}
+function confirmPlace(){
+  updateGhost();
+  if (!G.ghostValid){ msg('❌ Нельзя построить здесь'); return; }
+  if (countItem('wood') < 5){ msg('Не хватает 🪵 (нужно 5)'); cancelPlacement(); return; }
+  payCost({wood:5});
+  addWall(G.ghostX, G.ghostZ, G.ghostRy, 100);
+  msg('🏠 Стена построена (HP 100)');
+}
+
+/* ============================== МОБЫ ============================== */
+var MOB_DEFS = {
+  rabid:    {hp:30,  speed:5, dmg:10, san:5,  atkRange:2,   atkRate:1,   blood:1, detect:30},
+  bloated:  {hp:80,  speed:2, dmg:40, san:5,  atkRange:2.5, atkRate:3,   blood:2, detect:15},
+  wander:   {hp:25,  speed:4, dmg:15, san:5,  atkRange:2,   atkRate:1,   blood:1, detect:999},
+  weeper:   {hp:999, speed:8, dmg:999,san:10, atkRange:1.6, atkRate:1,   blood:10,detect:70},
+  poloz:    {hp:60,  speed:6, dmg:30, san:10, atkRange:1.8, atkRate:4,   blood:2, detect:80},
+  mimic:    {hp:40,  speed:7, dmg:25, san:10, atkRange:2,   atkRate:1.5, blood:3, detect:30},
+  collector:{hp:Infinity, speed:2, dmg:0, san:30, atkRange:2, atkRate:1, blood:0, detect:999}
+};
+function spawnMob(kind, x, z){
+  if (mobs.length > 46 && kind!=='collector') return null;
+  var def = MOB_DEFS[kind];
+  var m = {kind:kind, x:x, z:z, hp:def.hp, speed:def.speed, dmg:def.dmg, san:def.san,
+           atkRange:def.atkRange, atkRate:def.atkRate, blood:def.blood, detect:def.detect,
+           state:'idle', atkCd:0, animT:Math.random()*10, teleCd:1.5, sanCd:0, fleeT:0,
+           diveCd:0, ang:Math.random()*6.28, revealed:false, firstHit:false, patrolT:0, tx:null, tz:null};
+  var g = new THREE.Group();
+  if (kind === 'rabid'){
+    var body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.8), lamb(0x5c3a1a));
+    body.position.y = 0.3; g.add(body);
+    var eyeM = new THREE.MeshBasicMaterial({color:0xff2222});
+    var e1 = new THREE.Mesh(new THREE.SphereGeometry(0.06,6,6), eyeM); e1.position.set(0.13,0.38,0.36); g.add(e1);
+    var e2 = e1.clone(); e2.position.x = -0.13; g.add(e2);
+  } else if (kind === 'bloated'){
+    var s = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10), lamb(0x6f6f78));
+    s.position.y = 1; g.add(s); m.body = s;
+    for (var i=0;i<4;i++){
+      var spot = new THREE.Mesh(new THREE.SphereGeometry(0.24,6,6), lamb(0x26262c));
+      var a = Math.random()*6.28, bb = Math.random()*3.14;
+      spot.position.set(Math.sin(bb)*Math.cos(a), 1+Math.cos(bb)*0.9, Math.sin(bb)*Math.sin(a));
+      g.add(spot);
+    }
+  } else if (kind === 'wander'){
+    var c = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 1.7, 8), lamb(0xcbb591));
+    c.position.y = 0.85; g.add(c);
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.19,8,8), lamb(0xcbb591));
+    head.position.y = 1.85; g.add(head);
+    var wm = new THREE.MeshBasicMaterial({color:0x661111});
+    var w1 = new THREE.Mesh(new THREE.SphereGeometry(0.045,5,5), wm); w1.position.set(0.08,1.9,0.15); g.add(w1);
+    var w2 = w1.clone(); w2.position.x = -0.08; g.add(w2);
+  } else if (kind === 'weeper'){
+    var wc = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.15, 1.4, 8), lamb(0xf0f0f0));
+    wc.position.y = 1.35; g.add(wc);
+    var dress = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.35, 10), lamb(0xe6e6e6));
+    dress.position.y = 0.68; g.add(dress);
+    var wh = new THREE.Mesh(new THREE.SphereGeometry(0.18,8,8), lamb(0xdcdcdc));
+    wh.position.y = 2.2; g.add(wh);
+    var hair = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.6,0.14), lamb(0x0c0c0c));
+    hair.position.set(0, 2.05, -0.12); g.add(hair);
+  } else if (kind === 'poloz'){
+    var pc = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 3, 7), lamb(0xe8e0d0));
+    pc.rotation.z = Math.PI/2; g.add(pc);
+    var ph = new THREE.Mesh(new THREE.SphereGeometry(0.17,7,7), lamb(0xd8d0c0));
+    ph.position.x = 1.55; g.add(ph);
+    var pm = new THREE.MeshBasicMaterial({color:0xff5533});
+    var pe = new THREE.Mesh(new THREE.SphereGeometry(0.05,5,5), pm); pe.position.set(1.68,0.06,0); g.add(pe);
+    m.y0 = 9; m.state = 'circle';
+  } else if (kind === 'mimic'){
+    var b = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), lamb(0x6f4a21));
+    b.position.y = 0.5; g.add(b); m.body = b;
+  } else if (kind === 'collector'){
+    var cc = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.32, 4, 10), lamb(0x07070c));
+    cc.position.y = 2; g.add(cc);
+    var mask = new THREE.Mesh(new THREE.SphereGeometry(0.34,10,10), lamb(0xf2f2f2));
+    mask.position.set(0, 3.7, 0.1); g.add(mask);
+    var bm = new THREE.MeshBasicMaterial({color:0x000000});
+    var be1 = new THREE.Mesh(new THREE.SphereGeometry(0.06,5,5), bm); be1.position.set(0.12,3.75,0.4); g.add(be1);
+    var be2 = be1.clone(); be2.position.x = -0.12; g.add(be2);
+  }
+  g.position.set(x, m.y0||0, z);
+  g.userData.ent = {kind:'mob', ref:m};
+  g.traverse(function(o){ o.userData.ent = g.userData.ent; });
+  m.group = g;
+  scene.add(g);
+  mobs.push(m); rayList.push(g);
+  return m;
+}
+function killMob(m, silent){
+  var gi = rayList.indexOf(m.group); if (gi>=0) rayList.splice(gi,1);
+  scene.remove(m.group);
+  var i = mobs.indexOf(m); if (i>=0) mobs.splice(i,1);
+  m.dead = true;
+  if (!silent && m.blood > 0){ addItem('blood', m.blood, true); msg('🩸 +'+m.blood+' Кровь'); }
+  if (!silent && m.kind === 'wander' && Math.random() < 0.3){ addItem('bandage', 1, true); msg('🩹 +1 Бинт'); }
+}
+function randSpawnPos(minR, maxR){
+  var a = Math.random()*Math.PI*2, r = rand(minR, maxR);
+  return {
+    x: clamp(camera.position.x + Math.cos(a)*r, -MAP_BOUND, MAP_BOUND),
+    z: clamp(camera.position.z + Math.sin(a)*r, -MAP_BOUND, MAP_BOUND)
+  };
+}
+function isInView(x, z){
+  tmpV1.set(x - camera.position.x, 0, z - camera.position.z).normalize();
+  camera.getWorldDirection(tmpV2);
+  tmpV2.y = 0; tmpV2.normalize();
+  return tmpV1.dot(tmpV2) > 0.35; // ~внутри переднего конуса обзора
+}
+function spawnNightWave(){
+  var d = G.day, i, p, n;
+  if (d >= 1){ n = randInt(3,5); for (i=0;i<n;i++){ p = randSpawnPos(40,70); spawnMob('rabid', p.x, p.z); } }
+  if (d >= 2){ n = randInt(1,2); for (i=0;i<n;i++){ p = randSpawnPos(15,35); spawnMob('bloated', p.x, p.z); } }
+  if (d >= 3){ n = randInt(5,8); for (i=0;i<n;i++){ p = randSpawnPos(30,60); spawnMob('wander', p.x, p.z); } }
+  if (d >= 4){ p = randSpawnPos(35,55); spawnMob('weeper', p.x, p.z); msg('🕯️ В этой темноте кто-то стоит спиной...'); }
+  if (d >= 5){ n = randInt(1,2); for (i=0;i<n;i++){ p = randSpawnPos(30,50); spawnMob('poloz', p.x, p.z); } }
+  if (d >= 6){
+    n = randInt(1,3);
+    for (i=0;i<n;i++){
+      var placed = false;
+      for (var t=0;t<15 && !placed;t++){
+        var bx = camera.position.x, bz = camera.position.z;
+        if (builds.length > 0 && Math.random() < 0.6){
+          var bb = builds[randInt(0, builds.length-1)];
+          bx = bb.g.position.x; bz = bb.g.position.z;
+        }
+        var mx = clamp(bx + rand(-28,28), -MAP_BOUND, MAP_BOUND);
+        var mz = clamp(bz + rand(-28,28), -MAP_BOUND, MAP_BOUND);
+        var ddx = mx - camera.position.x, ddz = mz - camera.position.z;
+        if (ddx*ddx+ddz*ddz < 64) continue;
+        if (isInView(mx, mz)) continue;
+        spawnMob('mimic', mx, mz); placed = true;
+      }
+    }
+  }
+  if (d >= 7){ p = randSpawnPos(45,65); spawnMob('collector', p.x, p.z); msg('⚫ Он идёт. Стены не спасут.'); }
+  if (d >= 8){
+    G.whisper.queue = [];
+    n = randInt(1,3);
+    for (i=0;i<n;i++) G.whisper.queue.push(rand(3, 21));
+  }
+}
+function despawnNightMobs(){
+  for (var i=mobs.length-1;i>=0;i--) killMob(mobs[i], true);
+  G.whisper.active = false; G.whisper.invertT = 0;
+}
+/* --- помощники движения мобов --- */
+function resolveWalls(x, z, r){
+  for (var i=0;i<wallColliders.length;i++){
+    var w = wallColliders[i];
+    var cx = clamp(x, w.x0, w.x1), cz = clamp(z, w.z0, w.z1);
+    var dx = x-cx, dz = z-cz, d2 = dx*dx + dz*dz;
+    if (d2 < r*r){
+      if (d2 > 0.0001){ var d = Math.sqrt(d2); x = cx + dx/d*r; z = cz + dz/d*r; }
+      else {
+        var p1 = (x-w.x0)+r, p2 = (w.x1-x)+r, p3 = (z-w.z0)+r, p4 = (w.z1-z)+r;
+        var mm = Math.min(p1,p2,p3,p4);
+        if (mm===p1) x = w.x0-r; else if (mm===p2) x = w.x1+r; else if (mm===p3) z = w.z0-r; else z = w.z1+r;
+      }
+    }
+  }
+  return {x:x, z:z};
+}
+function mobMoveTo(m, tx, tz, speed, dt, skipWalls){
+  var gp = m.group.position;
+  var dx = tx-gp.x, dz = tz-gp.z;
+  var d = Math.sqrt(dx*dx + dz*dz);
+  if (d < 0.05) return true;
+  dx /= d; dz /= d;
+  var nx = gp.x + dx*speed*dt, nz = gp.z + dz*speed*dt;
+  if (!skipWalls){ var rs = resolveWalls(nx, nz, 0.5); nx = rs.x; nz = rs.z; }
+  gp.x = clamp(nx, -MAP_BOUND, MAP_BOUND);
+  gp.z = clamp(nz, -MAP_BOUND, MAP_BOUND);
+  m.group.rotation.y = Math.atan2(dx, dz);
+  return d < 1;
+}
+function mobHitPlayer(m, dmg, san, rate){
+  if (m.atkCd <= 0){
+    m.atkCd = rate;
+    damagePlayer(dmg, san);
+  }
+}
+function isLookingAt(pos, maxDist, minDot){
+  var dx = pos.x - camera.position.x, dy = (pos.y+1.2) - camera.position.y, dz = pos.z - camera.position.z;
+  var d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+  if (d > maxDist || d < 0.001) return false;
+  camera.getWorldDirection(tmpV2);
+  return (tmpV2.x*dx + tmpV2.y*dy + tmpV2.z*dz)/d > minDot;
+}
+function treeNear(x, z, r){
+  for (var i=0;i<trees.length;i++){
+    var dx = trees[i].x - x, dz = trees[i].z - z;
+    if (dx*dx + dz*dz < r*r) return true;
+  }
+  return false;
+}
+/* --- обновление мобов --- */
+function updateMobs(dt){
+  var px = camera.position.x, pz = camera.position.z;
+  for (var i=mobs.length-1;i>=0;i--){
+    var m = mobs[i];
+    if (m.dead) continue;
+    var gp = m.group.position;
+    var dxp = px-gp.x, dzp = pz-gp.z;
+    var distP = Math.sqrt(dxp*dxp + dzp*dzp);
+    m.atkCd -= dt;
+    m.animT += dt;
+
+    if (m.kind === 'rabid'){
+      gp.y = Math.abs(Math.sin(m.animT*8))*0.09;
+      var fire = fireNear(gp.x, gp.z, 10);
+      if (m.state !== 'chase' && distP < m.detect && !fire){ m.state = 'chase'; console.log('РЫЧАНИЕ'); }
+      if (m.state === 'chase'){
+        if (fire){
+          mobMoveTo(m, gp.x - (fire.g.position.x-gp.x), gp.z - (fire.g.position.z-gp.z), m.speed, dt);
+        } else if (distP < m.atkRange){ mobHitPlayer(m, m.dmg, m.san, m.atkRate); }
+        else mobMoveTo(m, px, pz, m.speed, dt);
+        if (distP > m.detect*2) m.state = 'patrol';
+      } else {
+        m.patrolT -= dt;
+        if (m.tx === null || m.patrolT <= 0){ m.patrolT = rand(4,8); m.tx = clamp(gp.x + rand(-25,25), -MAP_BOUND, MAP_BOUND); m.tz = clamp(gp.z + rand(-25,25), -MAP_BOUND, MAP_BOUND); }
+        mobMoveTo(m, m.tx, m.tz, 2.2, dt);
+      }
+    }
+    else if (m.kind === 'bloated'){
+      if (m.body) m.body.scale.setScalar(1 + Math.sin(m.animT*3)*0.05);
+      if (distP < m.detect || m.state==='chase'){
+        m.state = 'chase';
+        if (distP < m.atkRange) mobHitPlayer(m, m.dmg, m.san, m.atkRate);
+        else mobMoveTo(m, px, pz, m.speed, dt);
+        if (distP > 40) m.state = 'idle';
+      }
+    }
+    else if (m.kind === 'wander'){
+      if (isDayNow()){ /* днём стоят неподвижно */ }
+      else {
+        var spd = player.flashlightOn ? 5 : 4; // фонарик привлекает
+        if (distP < m.atkRange) mobHitPlayer(m, m.dmg, m.san, m.atkRate);
+        else mobMoveTo(m, px, pz, spd, dt);
+      }
+    }
+    else if (m.kind === 'weeper'){
+      m.teleCd -= dt; m.sanCd -= dt;
+      var seen = isLookingAt(gp, 70, 0.93);
+      if (seen && m.sanCd <= 0){ m.sanCd = 5; addSanity(10); msg('🕯️ Она почувствовала твой взгляд...'); }
+      if (m.fleeT > 0){
+        m.fleeT -= dt;
+        mobMoveTo(m, gp.x - dxp, gp.z - dzp, 8, dt, true);
+      } else if (player.flashlightOn && seen){
+        m.fleeT = 5;
+      } else if (fireNear(gp.x, gp.z, 6)){
+        m.fleeT = 5;
+      } else if (seen){
+        if (distP < 1.6){ die('Плакальщица дотронулась до тебя'); return; }
+        mobMoveTo(m, px, pz, 8, dt);
+      } else if (m.teleCd <= 0){
+        m.teleCd = 1.2;
+        if (distP > 2.2){
+          var step = Math.min(5, distP - 1.5);
+          gp.x += dxp/distP*step; gp.z += dzp/distP*step;
+        }
+      }
+    }
+    else if (m.kind === 'poloz'){
+      m.diveCd -= dt;
+      m.ang += dt*0.55;
+      if (m.state === 'circle'){
+        var txc = px + Math.cos(m.ang)*13, tzc = pz + Math.sin(m.ang)*13;
+        var ty = 9 + Math.sin(m.animT)*1.2;
+        gp.x += (txc-gp.x) * Math.min(1, 6*dt/Math.max(0.1, Math.abs(txc-gp.x)+Math.abs(tzc-gp.z)));
+        gp.z += (tzc-gp.z) * Math.min(1, 6*dt/Math.max(0.1, Math.abs(txc-gp.x)+Math.abs(tzc-gp.z)));
+        gp.y += clamp(ty-gp.y, -6*dt, 6*dt);
+        m.group.rotation.y = Math.atan2(txc-gp.x, tzc-gp.z);
+        if (player.stationaryTime > 5 && treeNear(px, pz, 15) && m.diveCd <= 0 && !isDayNow()){
+          m.state = 'dive';
+          msg('🐍 Что-то срывается с неба!');
+        }
+      } else if (m.state === 'dive'){
+        var ddx = px-gp.x, ddy = EYE-0.5-gp.y, ddz = pz-gp.z;
+        var dd = Math.sqrt(ddx*ddx + ddy*ddy + ddz*ddz);
+        if (dd < 1.6){
+          damagePlayer(30, 10);
+          m.state = 'climb'; m.diveCd = 8;
+        } else {
+          gp.x += ddx/dd*13*dt; gp.y += ddy/dd*13*dt; gp.z += ddz/dd*13*dt;
+          m.group.rotation.y = Math.atan2(ddx, ddz);
+        }
+      } else { // climb
+        gp.y += 7*dt;
+        if (gp.y >= 9) m.state = 'circle';
+      }
+    }
+    else if (m.kind === 'mimic'){
+      if (!m.revealed){
+        if (distP < 3) revealMimic(m);
+      } else {
+        if (distP < m.atkRange) mobHitPlayer(m, m.dmg, m.san, m.atkRate);
+        else mobMoveTo(m, px, pz, m.speed, dt);
+      }
+    }
+    else if (m.kind === 'collector'){
+      // идёт сквозь всё, без коллизий
+      mobMoveTo(m, px, pz, m.speed, dt, true);
+      if (distP < 2 && G.collFx.t <= 0){
+        triggerCollectorFx(m);
+      }
+    }
+  }
+}
+function revealMimic(m){
+  if (m.revealed) return;
+  m.revealed = true;
+  m.body.material.color.setHex(0xc02020);
+  m.group.scale.setScalar(1.3);
+  m.group.position.y = 0;
+  addSanity(10);
+  bigText('📦 МИМИК!', 1600, 'glitch');
+  msg('Это был не сундук...');
+}
+
+/* ============================== КОТИК ============================== */
+function spawnCat(){
+  var x, z, tries = 0;
+  do { x = rand(-MAP_BOUND, MAP_BOUND); z = rand(-MAP_BOUND, MAP_BOUND); tries++; }
+  while (tries < 30 && Math.hypot(x-camera.position.x, z-camera.position.z) < 20);
+  var g = new THREE.Group();
+  var orange = lamb(0xff8c1a);
+  var body = new THREE.Mesh(new THREE.BoxGeometry(0.3,0.3,0.5), orange); body.position.y = 0.28; g.add(body);
+  var head = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.24,0.24), orange); head.position.set(0,0.52,0.22); g.add(head);
+  var earG = new THREE.ConeGeometry(0.07,0.15,4);
+  var ear1 = new THREE.Mesh(earG, orange); ear1.position.set(0.08,0.7,0.22); g.add(ear1);
+  var ear2 = new THREE.Mesh(earG, orange); ear2.position.set(-0.08,0.7,0.22); g.add(ear2);
+  var tail = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.45,0.07), orange); tail.position.set(0,0.45,-0.28); tail.rotation.x = 0.5; g.add(tail);
+  var gm = new THREE.MeshBasicMaterial({color:0x33ff66});
+  var ge1 = new THREE.Mesh(new THREE.SphereGeometry(0.035,5,5), gm); ge1.position.set(0.07,0.55,0.34); g.add(ge1);
+  var ge2 = ge1.clone(); ge2.position.x = -0.07; g.add(ge2);
+  var gl = new THREE.PointLight(0x33ff66, 0.5, 3); gl.position.set(0,0.6,0.4); g.add(gl);
+  g.position.set(x, 0, z);
+  var ent = {kind:'cat'};
+  g.userData.ent = ent;
+  g.traverse(function(o){ o.userData.ent = ent; });
+  ent.g = g;
+  scene.add(g);
+  rayList.push(g);
+  G.cat = ent;
+  msg('🐱 Где-то в лесу мяукает котик...');
+}
+function removeCat(){
+  if (!G.cat) return;
+  var gi = rayList.indexOf(G.cat.g); if (gi>=0) rayList.splice(gi,1);
+  scene.remove(G.cat.g);
+  G.cat = null;
+}
+function catScare(){
+  var cat = G.cat;
+  if (!cat) return;
+  var cxp = cat.g.position.x, czp = cat.g.position.z;
+  removeCat();
+  G.catRespawnDay = G.day + 2;
+  // 1. красный экран 5 сек
+  $('redFlash').classList.add('on');
+  setTimeout(function(){ $('redFlash').classList.remove('on'); }, 5000);
+  // 2. тряска
+  $('gameWrap').classList.add('shakeAnim');
+  setTimeout(function(){ $('gameWrap').classList.remove('shakeAnim'); }, 2400);
+  // 3. 😱 на весь экран
+  bigText('😱😱😱😱😱', 3000, 'huge');
+  // 4. мобы в радиусе 5 умирают
+  for (var i=mobs.length-1;i>=0;i--){
+    var m = mobs[i];
+    var dx = m.group.position.x - cxp, dz = m.group.position.z - czp;
+    if (dx*dx + dz*dz < 25) killMob(m);
+  }
+  // 5. урон 50, 7. рассудок +15
+  damagePlayer(50, 15);
+  // 6. фейковый краш
+  setTimeout(function(){
+    $('fatal').classList.remove('hidden');
+    setTimeout(function(){ $('fatal').classList.add('hidden'); }, 2000);
+  }, 900);
+}
+
+/* ============================== ЭФФЕКТ КОЛЛЕКТОРА ============================== */
+function triggerCollectorFx(m){
+  if (G.collFx.t > 0) return;
+  addSanity(30);
+  G.collFx.t = 10;
+  G.collFx.wordT = 0;
+  G.collFx.filterT = 0;
+  G.collFx.mob = m;
+  if (m) m.group.visible = false;
+  bigText('ОН НАШЁЛ ТЕБЯ', 2000, 'glitch');
+}
+function updateCollectorFx(dt){
+  var fx = G.collFx;
+  if (fx.t <= 0) return;
+  fx.t -= dt;
+  fx.wordT -= dt;
+  fx.filterT -= dt;
+  if (fx.wordT <= 0){
+    fx.wordT = 0.85;
+    var el = $('glitchWord');
+    el.textContent = GLITCH_WORDS[randInt(0, GLITCH_WORDS.length-1)];
+    el.style.left = rand(10, 70) + '%';
+    el.style.top = rand(15, 75) + '%';
+    el.style.display = 'block';
+  }
+  if (fx.filterT <= 0){
+    fx.filterT = 0.1;
+    renderer.domElement.style.filter =
+      'hue-rotate('+randInt(0,360)+'deg) blur('+rand(0,3).toFixed(1)+'px) contrast('+rand(0.6,1.9).toFixed(2)+')';
+  }
+  if (fx.t <= 0){
+    renderer.domElement.style.filter = '';
+    $('glitchWord').style.display = 'none';
+    if (fx.mob && !fx.mob.dead) killMob(fx.mob, true);
+    fx.mob = null;
+    msg('⚫ Он ушёл... до следующей ночи.');
+  }
+}
+
+/* ============================== ШЁПОТ ============================== */
+function activateWhisper(){
+  var W = G.whisper;
+  W.active = true;
+  W.t = rand(15, 30);
+  W.nextInvert = rand(4, 8);
+  W.lieT = 2;
+  addSanity(20);
+  msg('🌫️ Ты слышишь шёпот в темноте...');
+}
+function updateWhisper(dt){
+  var W = G.whisper;
+  if (!W.active) return;
+  W.t -= dt; W.nextInvert -= dt; W.lieT -= dt;
+  if (W.invertT > 0) W.invertT -= dt;
+  if (W.nextInvert <= 0){
+    W.nextInvert = 10; W.invertT = 3;
+    bigText('...не доверяй рукам...', 1000, 'glitch');
+  }
+  if (W.lieT <= 0){
+    W.lieT = rand(3,6);
+    G.hintLie = WHISPER_LIES[randInt(0, WHISPER_LIES.length-1)];
+    G.hintLieT = 2.5;
+  }
+  if (player.stationaryTime >= 10){
+    W.active = false; W.invertT = 0;
+    msg('🌫️ Шёпот растворился...');
+    return;
+  }
+  if (W.t <= 0){ W.active = false; W.invertT = 0; msg('🌫️ Шёпот стих.'); }
+}
+
+/* ============================== ИГРОК: УРОН/СМЕРТЬ/РАССУДОК ============================== */
+function addSanity(n){ player.sanity = clamp(player.sanity + n, 0, 100); }
+function damagePlayer(dmg, san){
+  if (G.mode !== 'playing') return;
+  player.hp -= dmg;
+  if (san) addSanity(san);
+  G.dmgFlash = 0.9;
+  if (player.hp <= 0){ player.hp = 0; die('Ты не пережил эту ночь'); }
+}
+function die(reason){
+  if (G.mode !== 'playing') return;
+  G.mode = 'dead';
+  cancelPlacement();
+  $('deathText').textContent = '💀 ТЫ МЁРТВ. День ' + G.day + '. ' + (reason||'');
+  $('btnLoadSave').disabled = !hasSave();
+  document.exitPointerLock && document.exitPointerLock();
+  closeAllOverlays();
+  $('death').classList.remove('hidden');
+  G.overlayOpen = 'death';
+}
+
+/* ============================== УПРАВЛЕНИЕ ИГРОКОМ ============================== */
+function resolvePlayerCollisions(nx, nz){
+  var r = 0.45, i, s, dx, dz, d2, rr, d;
+  for (i=0;i<solids.length;i++){
+    s = solids[i];
+    dx = nx - s.x; dz = nz - s.z;
+    rr = s.r + r;
+    d2 = dx*dx + dz*dz;
+    if (d2 < rr*rr && d2 > 0.000001){
+      d = Math.sqrt(d2);
+      nx = s.x + dx/d*rr; nz = s.z + dz/d*rr;
+    }
+  }
+  var rs = resolveWalls(nx, nz, r);
+  return rs;
+}
+function updatePlayer(dt){
+  var p = player;
+  if (p.attackCd > 0) p.attackCd -= dt;
+  if (p.invertT > 0) p.invertT -= dt;
+  if (p.delayT > 0) p.delayT -= dt;
+
+  var frozen = G.collFx.t > 0 || p.delayT > 0;
+  var ix = 0, iz = 0;
+  if (!frozen){
+    if (keys['KeyW']) iz += 1;
+    if (keys['KeyS']) iz -= 1;
+    if (keys['KeyA']) ix -= 1;
+    if (keys['KeyD']) ix += 1;
+  }
+  var moving = (ix !== 0 || iz !== 0);
+  var sprint = false;
+  if (moving && (keys['ShiftLeft'] || keys['ShiftRight']) && p.stamina > 1) sprint = true;
+  var spd = WALK_SPD * (sprint ? SPRINT_MUL : 1);
+  if (moving){
+    var l = Math.sqrt(ix*ix + iz*iz); ix /= l; iz /= l;
+    var sn = Math.sin(p.yaw), cs = Math.cos(p.yaw);
+    var wx = (-sn*iz + cs*ix) * spd * dt;
+    var wz = (-cs*iz - sn*ix) * spd * dt;
+    var res = resolvePlayerCollisions(camera.position.x + wx, camera.position.z + wz);
+    camera.position.x = clamp(res.x, -MAP_BOUND, MAP_BOUND);
+    camera.position.z = clamp(res.z, -MAP_BOUND, MAP_BOUND);
+    p.stationaryTime = 0;
+    p.bobT += dt * (sprint ? 13 : 9);
+  } else {
+    p.stationaryTime += dt;
+  }
+  if (sprint) p.stamina = Math.max(0, p.stamina - 18*dt);
+  else p.stamina = Math.min(100, p.stamina + (isDayNow() ? 10 : 5)*dt);
+
+  if (!frozen && keys['Space'] && p.onGround){ p.vy = JUMP_V; p.onGround = false; }
+  p.vy -= GRAV * dt;
+  camera.position.y += p.vy * dt;
+  if (camera.position.y <= EYE){ camera.position.y = EYE; p.vy = 0; p.onGround = true; }
+
+  // батарея
+  if (p.flashlightOn){
+    p.battery -= 2*dt;
+    if (p.battery <= 0){ p.battery = 0; setFlashlight(false); msg('🔦 Батарея села'); }
+  }
+  if (isDayNow()) p.battery = Math.min(100, p.battery + 1*dt);
+  // фонарик следует за камерой
+  flash.intensity = p.flashlightOn ? 1.6 : 0;
+  if (p.flashlightOn){
+    flash.position.copy(camera.position);
+    camera.getWorldDirection(tmpV1);
+    flashTarget.position.copy(camera.position).add(tmpV1.multiplyScalar(10));
+  }
+  // факел
+  if (G.torchT > 0){
+    G.torchT -= dt;
+    torchLight.intensity = 1.3 + Math.sin(G.elapsed*11)*0.25;
+    torchLight.position.set(camera.position.x, camera.position.y + 0.4, camera.position.z);
+    if (G.torchT <= 0){ torchLight.intensity = 0; msg('🔥 Факел погас'); }
+  } else torchLight.intensity = 0;
+
+  p.baseY = camera.position.y;
+}
+function setFlashlight(on){
+  player.flashlightOn = on && player.battery > 0;
+}
+/* эффекты камеры по рассудку */
+function applyCameraFx(dt){
+  var p = player, s = p.sanity, sh = {x:0, y:0, r:0};
+  var t = G.elapsed;
+  if (s >= 30) { // лёгкое покачивание 30+
+    sh.y += Math.sin(t*0.9) * 0.008 * Math.min(1,(s-30)/20);
+    sh.x += Math.cos(t*0.7) * 0.006 * Math.min(1,(s-30)/20);
+  }
+  if (s >= 70 && s < 90 && G.jerkT > 0){ // дёрганье 70-90
+    G.jerkT -= dt;
+    sh.y += (Math.random()-0.5)*0.09;
+    sh.x += (Math.random()-0.5)*0.07;
+  }
+  if (s >= 90){ // постоянное дрожание 90+
+    sh.y += (Math.random()-0.5)*0.02;
+    sh.x += (Math.random()-0.5)*0.02;
+  }
+  if (G.collFx.t > 0){ // коллектор — сильные рывки
+    sh.y += (Math.random()-0.5)*0.3;
+    sh.x += (Math.random()-0.5)*0.25;
+  }
+  if (G.dmgFlash > 0.3){
+    sh.x += (Math.random()-0.5)*0.02;
+  }
+  camera.rotation.y = p.yaw + sh.y;
+  camera.rotation.x = p.pitch + sh.x;
+  camera.rotation.z = sh.r;
+  // head-bob
+  var moving = keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD'];
+  if (moving && p.onGround && G.collFx.t <= 0)
+    camera.position.y = p.baseY + Math.sin(p.bobT)*0.045;
+  else camera.position.y = p.baseY;
+}
+/* периодические эффекты рассудка */
+function updateSanityFx(dt){
+  var s = player.sanity;
+  if (!isDayNow()) addSanity(0.5*dt); // ночь давит на рассудок
+  if (s >= 50 && s < 70){
+    G.flickT -= dt;
+    if (G.flickT <= 0){
+      G.flickT = 20;
+      var f = $('flickerFigure');
+      f.style.left = rand(15,80)+'%'; f.style.top = rand(15,60)+'%';
+      f.style.display = 'block';
+      setTimeout(function(){ f.style.display = 'none'; }, 300);
+    }
+  }
+  if (s >= 70 && s < 90){
+    G.lieBigT -= dt; G.jerkNext -= dt; G.delayNext -= dt;
+    if (G.lieBigT <= 0){ G.lieBigT = rand(9,16); bigText('ОН ЗДЕСЬ', 1100, 'glitch'); }
+    if (G.jerkNext <= 0){ G.jerkNext = rand(4,9); G.jerkT = 0.25; }
+    if (G.delayNext <= 0){ G.delayNext = rand(8,20); player.delayT = 0.3; }
+  }
+  if (s >= 90){
+    G.invertNext -= dt; G.phantomNext -= dt;
+    if (G.invertNext <= 0){ G.invertNext = 30; player.invertT = 1; bigText('МИР ПЕРЕВОРАЧИВАЕТСЯ', 900, 'glitch'); }
+    if (G.phantomNext <= 0){ G.phantomNext = rand(4,9); spawnPhantom(); }
+  }
+}
+function spawnPhantom(){
+  var a = Math.random()*Math.PI*2, r = rand(8,18);
+  var g = new THREE.Group();
+  var mat = new THREE.MeshBasicMaterial({color:0xbb1010, transparent:true, opacity:0.85});
+  var body = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.4,1.8,6), mat);
+  body.position.y = 0.9; g.add(body);
+  var head = new THREE.Mesh(new THREE.SphereGeometry(0.22,6,6), mat);
+  head.position.y = 1.95; g.add(head);
+  g.position.set(clamp(camera.position.x+Math.cos(a)*r, -MAP_BOUND, MAP_BOUND), 0,
+                 clamp(camera.position.z+Math.sin(a)*r, -MAP_BOUND, MAP_BOUND));
+  g.lookAt(camera.position.x, 0, camera.position.z);
+  scene.add(g);
+  phantoms.push({g:g, life:1});
+}
+function updatePhantoms(dt){
+  for (var i=phantoms.length-1;i>=0;i--){
+    var ph = phantoms[i];
+    ph.life -= dt;
+    if (ph.life <= 0){ scene.remove(ph.g); phantoms.splice(i,1); }
+  }
+}
+
+/* ============================== ДЕНЬ/НОЧЬ ============================== */
+var C_DAWN, C_DAY, C_DUSK, C_NIGHT, skyC;
+function initColors(){
+  C_DAWN = new THREE.Color(0xe89ac0); C_DAY = new THREE.Color(0x87ceeb);
+  C_DUSK = new THREE.Color(0xff7b2f); C_NIGHT = new THREE.Color(0x050512);
+  skyC = new THREE.Color();
+}
+function skyColorFor(t){
+  if (t < 3) return skyC.copy(C_DAWN).lerp(C_DAY, t/3);
+  if (t < 33) return skyC.copy(C_DAY);
+  if (t < 36){ var u = (t-33)/3; if (u < 0.5) return skyC.copy(C_DAY).lerp(C_DUSK, u*2); return skyC.copy(C_DUSK).lerp(C_NIGHT, (u-0.5)*2); }
+  if (t < 57) return skyC.copy(C_NIGHT);
+  return skyC.copy(C_NIGHT).lerp(C_DAWN, (t-57)/3);
+}
+function updateDayNight(dt){
+  if (!G.ending){
+    var prev = G.time;
+    G.time += dt;
+    if (prev < 33 && G.time >= 33) setTraderActive(false);
+    if (prev < DAY_T && G.time >= DAY_T) onNight();
+    if (G.time >= DAY_LEN){ G.time -= DAY_LEN; G.day++; onDawn(); }
+  }
+  var t = G.time, day = isDayNow();
+  // солнце/луна
+  if (day){
+    var prog = t / DAY_T, elev = Math.sin(prog*Math.PI);
+    sunLight.position.set(Math.cos(prog*Math.PI)*120, 10 + elev*110, 40 + Math.sin(prog*Math.PI)*30);
+    sunLight.color.setHex(0xfff1d6);
+    sunLight.intensity = 0.15 + elev*1.0;
+    ambient.color.setHex(0xaabbcc);
+    ambient.intensity = 0.35 + elev*0.25;
+    scene.fog.near = 40; scene.fog.far = 140;
+  } else {
+    var np = (t - DAY_T) / NIGHT_T;
+    sunLight.position.set(Math.cos(np*Math.PI)*100, 20 + Math.sin(np*Math.PI)*90, -50);
+    sunLight.color.setHex(0x8899ff);
+    sunLight.intensity = 0.07;
+    ambient.color.setHex(0x111122);
+    ambient.intensity = 0.8;
+    scene.fog.near = 7; scene.fog.far = 50;
+  }
+  var sc = skyColorFor(t);
+  scene.background.copy(sc);
+  scene.fog.color.copy(sc);
+  stars.material.opacity = day ? 0 : 0.9;
+  // закат-предупреждение
+  $('sunsetWarn').style.display = (t >= 33 && t < 36) ? 'block' : 'none';
+  // шёпот — расписание ночью
+  if (!day && G.day >= 8 && !G.whisper.active && G.whisper.queue.length > 0){
+    var nt = t - DAY_T;
+    for (var i=G.whisper.queue.length-1;i>=0;i--){
+      if (nt >= G.whisper.queue[i]){ G.whisper.queue.splice(i,1); activateWhisper(); }
+    }
+  }
+}
+function onNight(){
+  msg('🌑 Наступила ночь ' + G.day + '...');
+  spawnNightWave();
+}
+function onDawn(){
+  G.prayedToday = false;
+  despawnNightMobs();
+  msg('☀️ День ' + G.day);
+  // ачивки
+  for (var i=0;i<ACHIVS.length;i++){
+    var a = ACHIVS[i];
+    if (G.day >= a[0] && !G.ach['d'+a[0]]){
+      G.ach['d'+a[0]] = true;
+      bigText('🏆 ' + a[1], 5000, '');
+      msg('🏆 Достижение: ' + a[1]);
+    }
+  }
+  // автосейв каждые 7 дней
+  if (G.day % 7 === 0 && !G.ending){
+    saveGame(true);
+    bigText('💾 АВТОСОХРАНЕНИЕ', 3000, '');
+  }
+  // торговец в день 1 и каждые 7 (1, 8, 15...)
+  setTraderActive(isTraderDay() && G.time < 33 && !G.ending);
+  // котик
+  if (G.day >= 10 && !G.cat && G.day >= G.catRespawnDay) spawnCat();
+  // финал
+  if (G.day >= 1000 && !G.ending) startEnding();
+}
+
+/* ============================== ВЗАИМОДЕЙСТВИЕ (raycast) ============================== */
+function getTarget(){
+  raycaster.setFromCamera(centerVec, camera);
+  var hits = raycaster.intersectObjects(rayList, true);
+  for (var i=0;i<hits.length;i++){
+    var h = hits[i];
+    if (h.distance > 3.4) return null;
+    var o = h.object, ent = null;
+    while (o){ if (o.userData && o.userData.ent){ ent = o.userData.ent; break; } o = o.parent; }
+    if (!ent) continue;
+    if (ent.kind === 'trader' && !traderRef.active) continue;
+    if (ent.kind === 'mob' && ent.ref.dead) continue;
+    return {ent: ent, dist: h.distance};
+  }
+  return null;
+}
+var hintTimer = 0;
+function updateHint(dt){
+  hintTimer -= dt;
+  if (hintTimer > 0) return;
+  hintTimer = 0.12;
+  G.currentTarget = getTarget();
+  var txt = '';
+  if (G.placement) txt = '[ЛКМ] Поставить стену &nbsp;|&nbsp; [ПКМ / ESC] Отмена';
+  else if (G.hintLieT > 0 && G.hintLie) txt = G.hintLie;
+  else if (G.currentTarget){
+    var e = G.currentTarget.ent;
+    if (e.kind === 'tree') txt = '[ЛКМ] Рубить дерево';
+    else if (e.kind === 'rock') txt = '[ЛКМ] Добыть камень';
+    else if (e.kind === 'mob'){
+      var k = e.ref.kind;
+      if (k === 'mimic' && !e.ref.revealed) txt = '[E] Открыть';
+      else if (k === 'collector') txt = '';
+      else txt = '[ЛКМ] Атаковать';
+    }
+    else if (e.kind === 'chest') txt = '[E] Открыть';
+    else if (e.kind === 'altar') txt = G.prayedToday ? 'Вы уже молились сегодня' : '[E] Помолиться';
+    else if (e.kind === 'trader') txt = '[E] Торговать';
+    else if (e.kind === 'cat') txt = '[E] Погладить 🐱';
+    else if (e.kind === 'grass') txt = '[E] Потрогать траву';
+  }
+  $('hint').innerHTML = txt;
+  $('hint').style.visibility = txt ? 'visible' : 'hidden';
+}
+function attack(){
+  if (player.attackCd > 0 || G.mode !== 'playing') return;
+  player.attackCd = 0.45;
+  var tgt = G.currentTarget;
+  if (!tgt || tgt.dist > 3.4) tgt = getTarget();
+  if (!tgt) return;
+  var e = tgt.ent;
+  if (e.kind === 'tree'){
+    var t = e.ref;
+    t.hp -= 1;
+    addItem('wood', 1);
+    pulseList.push({g:t.g, ref:t, life:1, sy:t.g.scale.y});
+    if (t.hp <= 0){ removeTree(t); msg('🌲 Дерево срублено'); }
+  } else if (e.kind === 'rock'){
+    var r = e.ref;
+    r.hp -= 1;
+    addItem('stone', 1);
+    pulseList.push({g:r.g, ref:r, life:1, sy:r.g.scale.y});
+    if (r.hp <= 0){ removeRock(r); msg('🪨 Камень добыт'); }
+  } else if (e.kind === 'mob'){
+    var m = e.ref;
+    if (m.kind === 'collector'){ msg('⚫ Его нельзя ранить...'); return; }
+    var dmg = 15;
+    if (m.kind === 'mimic' && !m.firstHit){ dmg += 20; m.firstHit = true; if(!m.revealed) revealMimic(m); }
+    m.hp -= dmg;
+    m.group.position.x += (m.group.position.x - camera.position.x) * 0.05;
+    m.group.position.z += (m.group.position.z - camera.position.z) * 0.05;
+    if (m.hp <= 0) killMob(m);
+  }
+}
+function updatePulses(dt){
+  for (var i=pulseList.length-1;i>=0;i--){
+    var p = pulseList[i];
+    p.life -= dt*5;
+    var s = 1 + Math.max(0,p.life)*0.08;
+    p.g.scale.set(s, s*p.sy, s);
+    if (p.life <= 0){ p.g.scale.set(1, p.sy, 1); pulseList.splice(i,1); }
+  }
+}
+function interact(){
+  if (G.mode !== 'playing' || G.overlayOpen) return;
+  var tgt = G.currentTarget;
+  if (!tgt || tgt.dist > 3.4) tgt = getTarget();
+  if (!tgt) return;
+  var e = tgt.ent;
+  if (e.kind === 'altar'){
+    if (G.prayedToday) { msg('🙏 Вы уже молились сегодня'); return; }
+    G.prayedToday = true;
+    player.sanity = 0;
+    bigText('🙏 РАССУДОК ОЧИЩЕН', 2200, '');
+    msg('🙏 Молитва услышана. Рассудок = 0%');
+  }
+  else if (e.kind === 'trader' && traderRef.active){ openOverlay('trade'); }
+  else if (e.kind === 'chest'){ openChest(e.ref); }
+  else if (e.kind === 'cat'){ catScare(); }
+  else if (e.kind === 'grass'){ showEnding(); }
+  else if (e.kind === 'mob' && e.ref.kind === 'mimic' && !e.ref.revealed){ revealMimic(e.ref); }
+}
+
+/* ============================== ТОРГОВЛЯ UI ============================== */
+function renderTrade(){
+  var list = $('tradeList'); list.innerHTML = '';
+  TRADE.forEach(function(r){
+    var ok = canAfford(r.cost);
+    var b = document.createElement('button');
+    b.className = 'craftBtn' + (ok ? '' : ' off');
+    b.innerHTML = '<span><span class="nm">'+r.icon+' '+r.name+'</span><small>'+r.desc+'</small></span><span style="white-space:nowrap;margin-left:12px">'+costText(r.cost)+'</span>';
+    if (ok) b.onclick = function(){ doTrade(r.id); };
+    list.appendChild(b);
+  });
+}
+function doTrade(id){
+  if (id === 'crystal'){ payCost({blood:5}); saveGame(true); }
+  else if (id === 'map'){ payCost({blood:3}); G.mapRevealed = true; msg('🗺️ Вся карта открыта!'); }
+  else if (id === 'medkit'){ payCost({blood:2}); player.hp = Math.min(100, player.hp + 50); msg('🩹 +50 HP'); }
+  else if (id === 'battery'){ payCost({blood:1}); player.battery = 100; msg('🔦 Батарея 100%'); }
+  renderTrade();
+}
+
+/* ============================== СУНДУК UI ============================== */
+var currentChest = null;
+function openChest(b){
+  currentChest = b;
+  renderChest();
+  openOverlay('chestUI');
+}
+function renderChest(){
+  if (!currentChest) return;
+  renderSlots($('chestGrid'), currentChest.items, function(idx){ moveStack(currentChest.items, inventory, idx, currentChest.items); renderChest(); });
+  renderSlots($('chestInvGrid'), inventory, function(idx){ moveStack(inventory, currentChest.items, idx, inventory); renderChest(); });
+}
+function moveStack(from, to, idx){
+  var s = from[idx]; if (!s) return;
+  var i;
+  for (i=0;i<to.length;i++) if (to[i] && to[i].type===s.type){ to[i].count += s.count; from[idx] = null; return; }
+  for (i=0;i<to.length;i++) if (!to[i]){ to[i] = s; from[idx] = null; return; }
+  msg('Нет места!');
+}
+
+/* ============================== КАРТА ============================== */
+function initFog(){
+  fogCanvas = document.createElement('canvas');
+  fogCanvas.width = 300; fogCanvas.height = 300;
+  fogCtx = fogCanvas.getContext('2d');
+  resetFog();
+}
+function resetFog(){
+  fogCtx.globalCompositeOperation = 'source-over';
+  fogCtx.fillStyle = '#000';
+  fogCtx.fillRect(0,0,300,300);
+}
+function revealFog(){
+  var mx = (camera.position.x + MAP_SIZE/2), mz = (camera.position.z + MAP_SIZE/2);
+  fogCtx.globalCompositeOperation = 'destination-out';
+  var grad = fogCtx.createRadialGradient(mx, mz, 4, mx, mz, 30);
+  grad.addColorStop(0, 'rgba(0,0,0,1)');
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  fogCtx.fillStyle = grad;
+  fogCtx.beginPath(); fogCtx.arc(mx, mz, 30, 0, 6.29); fogCtx.fill();
+  fogCtx.globalCompositeOperation = 'source-over';
+}
+function w2m(v){ return v + MAP_SIZE/2; }
+function drawMap(){
+  var c = $('mapCanvas'), ctx = c.getContext('2d');
+  // земля
+  ctx.fillStyle = '#1c4a14';
+  ctx.fillRect(0,0,300,300);
+  // деревья / камни
+  var i;
+  ctx.fillStyle = '#0d3008';
+  for (i=0;i<trees.length;i++) ctx.fillRect(w2m(trees[i].x)-1, w2m(trees[i].z)-1, 2, 2);
+  ctx.fillStyle = '#8a8a8a';
+  for (i=0;i<rocks.length;i++) ctx.fillRect(w2m(rocks[i].x)-1, w2m(rocks[i].z)-1, 2, 2);
+  // постройки
+  for (i=0;i<builds.length;i++){
+    var b = builds[i];
+    if (b.t === 'wall'){ ctx.fillStyle = '#c9a25e'; ctx.fillRect(w2m(b.g.position.x)-2, w2m(b.g.position.z)-2, 4, 4); }
+    else if (b.t === 'chest'){ ctx.fillStyle = '#a06a28'; ctx.fillRect(w2m(b.g.position.x)-2, w2m(b.g.position.z)-2, 4, 4); }
+    else if (b.t === 'fire' && b.fuel > 0){ ctx.fillStyle = '#ff7b25'; ctx.fillRect(w2m(b.g.position.x)-2, w2m(b.g.position.z)-2, 4, 4); }
+  }
+  // церковь — жёлтый крест
+  if (churchRef){
+    var cx = w2m(churchRef.position.x), cz = w2m(churchRef.position.z);
+    ctx.fillStyle = '#ffe14d';
+    ctx.fillRect(cx-1, cz-5, 2, 10);
+    ctx.fillRect(cx-5, cz-1, 10, 2);
+  }
+  // торговец
+  if (traderRef && traderRef.active){
+    ctx.fillStyle = '#c070ff';
+    ctx.beginPath(); ctx.arc(w2m(traderRef.x), w2m(traderRef.z), 4, 0, 6.29); ctx.fill();
+  }
+  // мобы
+  ctx.fillStyle = '#ff3030';
+  for (i=0;i<mobs.length;i++){
+    var m = mobs[i];
+    ctx.fillRect(w2m(m.group.position.x)-1.5, w2m(m.group.position.z)-1.5, 3, 3);
+  }
+  // игрок
+  var px = w2m(camera.position.x), pz = w2m(camera.position.z);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(px, pz, 3.5, 0, 6.29); ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(px, pz);
+  ctx.lineTo(px - Math.sin(player.yaw)*8, pz - Math.cos(player.yaw)*8); ctx.stroke();
+  // туман войны
+  if (!G.mapRevealed) ctx.drawImage(fogCanvas, 0, 0);
+  // шёпот: ложные точки
+  if (G.whisper.active){
+    ctx.fillStyle = '#ff3030';
+    for (i=0;i<3;i++){
+      ctx.fillRect(px + rand(-40,40), pz + rand(-40,40), 3, 3);
+    }
+  }
+}
+
+/* ============================== СОХРАНЕНИЕ / ЗАГРУЗКА ============================== */
+function saveGame(show){
+  if (G.ending) return;
+  try {
+    var data = {
+      v: 1, day: G.day, time: G.time,
+      pos: [camera.position.x, camera.position.y, camera.position.z],
+      yaw: player.yaw, pitch: player.pitch,
+      hp: player.hp, stamina: player.stamina, sanity: player.sanity, battery: player.battery,
+      inv: inventory,
+      trees: trees.map(function(t){ return [t.x, t.z, t.hp]; }),
+      rocks: rocks.map(function(r){ return [r.x, r.z, r.hp]; }),
+      builds: builds.map(function(b){
+        return {t:b.t, x:b.g.position.x, z:b.g.position.z, ry:b.g.rotation.y, hp:b.hp||0, items:(b.items||null), fuel:(b.fuel||0)};
+      }),
+      church: churchRef ? [churchRef.position.x, churchRef.position.z] : null,
+      trader: traderRef ? [traderRef.x, traderRef.z] : null,
+      fog: fogCanvas.toDataURL(),
+      mapRevealed: G.mapRevealed,
+      ach: G.ach
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    if (show) msg('💾 Сохранено');
+  } catch(e){ msg('⚠️ Ошибка сохранения'); }
+}
+function loadGameData(){
+  try { var s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; }
+  catch(e){ return null; }
+}
+function hasSave(){ return !!loadGameData(); }
+
+/* ============================== РЕСЕТ / ГЕНЕРАЦИЯ МИРА ============================== */
+function clearWorldEntities(){
+  var i;
+  for (i=0;i<trees.length;i++) scene.remove(trees[i].g);
+  for (i=0;i<rocks.length;i++) scene.remove(rocks[i].g);
+  for (i=0;i<mobs.length;i++) scene.remove(mobs[i].group);
+  for (i=0;i<builds.length;i++) scene.remove(builds[i].g);
+  for (i=0;i<phantoms.length;i++) scene.remove(phantoms[i].g);
+  if (churchRef){ scene.remove(churchRef); churchRef = null; }
+  if (traderRef){ scene.remove(traderRef.g); traderRef = null; }
+  removeCat();
+  if (grassCube){ scene.remove(grassCube); grassCube = null; }
+  trees = []; rocks = []; mobs = []; builds = []; phantoms = [];
+  solids = []; wallColliders = []; rayList = []; pulseList = [];
+}
+function generateWorldPos(){
+  return {x: rand(-120, 120), z: rand(-120, 120)};
+}
+function buildWorld(saved){
+  clearWorldEntities();
+  var chPos, trPos, i;
+  if (saved && saved.church) chPos = {x:saved.church[0], z:saved.church[1]};
+  else chPos = generateWorldPos();
+  if (saved && saved.trader) trPos = {x:saved.trader[0], z:saved.trader[1]};
+  else {
+    do { trPos = generateWorldPos(); }
+    while (Math.hypot(trPos.x-chPos.x, trPos.z-chPos.z) < 30);
+  }
+  buildChurch(chPos.x, chPos.z);
+  buildTraderSpot(trPos.x, trPos.z);
+  // деревья / камни
+  if (saved){
+    for (i=0;i<saved.trees.length;i++) addTree(saved.trees[i][0], saved.trees[i][1], saved.trees[i][2]);
+    for (i=0;i<saved.rocks.length;i++) addRock(saved.rocks[i][0], saved.rocks[i][1], saved.rocks[i][2]);
+  } else {
+    var placed = 0, tries = 0;
+    while (placed < TREE_COUNT && tries < 4000){
+      tries++;
+      var x = rand(-MAP_BOUND, MAP_BOUND), z = rand(-MAP_BOUND, MAP_BOUND);
+      if (Math.hypot(x, z) < 6) continue;                                        // не на спавне
+      if (Math.hypot(x-chPos.x, z-chPos.z) < 11) continue;                       // не в церкви
+      if (Math.hypot(x-trPos.x, z-trPos.z) < 6) continue;
+      addTree(x, z); placed++;
+    }
+    placed = 0; tries = 0;
+    while (placed < ROCK_COUNT && tries < 3000){
+      tries++;
+      var rx = rand(-MAP_BOUND, MAP_BOUND), rz = rand(-MAP_BOUND, MAP_BOUND);
+      if (Math.hypot(rx, rz) < 6) continue;
+      if (Math.hypot(rx-chPos.x, rz-chPos.z) < 11) continue;
+      if (Math.hypot(rx-trPos.x, rz-trPos.z) < 6) continue;
+      addRock(rx, rz); placed++;
+    }
+  }
+  // постройки из сейва
+  if (saved && saved.builds){
+    for (i=0;i<saved.builds.length;i++){
+      var b = saved.builds[i];
+      if (b.t === 'wall') addWall(b.x, b.z, b.ry, b.hp);
+      else if (b.t === 'chest') addChest(b.x, b.z, b.items);
+      else if (b.t === 'fire') addFire(b.x, b.z, b.fuel);
+    }
+  }
+}
+function resetAll(saved){
+  // игрок
+  player.yaw = 0; player.pitch = 0; player.vy = 0; player.onGround = true;
+  player.hp = 100; player.stamina = 100; player.sanity = 0; player.battery = 100;
+  player.flashlightOn = false; player.attackCd = 0; player.invertT = 0; player.delayT = 0;
+  player.stationaryTime = 0; player.baseY = EYE;
+  camera.position.set(0, EYE, 0);
+  camera.rotation.set(0, 0, 0);
+  // состояние
+  G.day = 1; G.time = 2; G.elapsed = 0;
+  G.prayedToday = false; G.placement = false; G.ach = {};
+  G.mapRevealed = false; G.cat = null; G.catRespawnDay = 0;
+  G.whisper = {active:false, t:0, invertT:0, nextInvert:0, lieT:0, queue:[]};
+  G.collFx = {t:0, wordT:0, filterT:0, mob:null};
+  G.ending = false; G.hintLie = ''; G.hintLieT = 0; G.dmgFlash = 0; G.torchT = 0;
+  inventory = new Array(20).fill(null);
+  resetFog();
+  cancelPlacement();
+  renderer.domElement.style.filter = '';
+  buildWorld(saved || null);
+  if (saved){
+    G.day = saved.day; G.time = saved.time;
+    camera.position.set(saved.pos[0], Math.max(EYE, saved.pos[1]), saved.pos[2]);
+    player.yaw = saved.yaw; player.pitch = saved.pitch;
+    player.hp = saved.hp; player.stamina = saved.stamina; player.sanity = saved.sanity; player.battery = saved.battery;
+    inventory = saved.inv;
+    while (inventory.length < 20) inventory.push(null);
+    G.mapRevealed = saved.mapRevealed;
+    G.ach = saved.ach || {};
+    if (saved.fog){
+      var img = new Image();
+      img.onload = function(){ fogCtx.globalCompositeOperation='source-over'; fogCtx.drawImage(img, 0, 0); };
+      img.src = saved.fog;
+    }
+    if (G.day >= 10 && !G.cat) G.catRespawnDay = G.day; // котик появится на рассвете
+  } else {
+    // стартовая выдача — ничего, чистый хоррор
+  }
+  if (traderRef){ traderRef.active = isTraderDay() && G.time < 33; traderRef.g.visible = traderRef.active; }
+}
+
+/* ============================== КОНЦОВКА (1000 дней) ============================== */
+function startEnding(){
+  G.ending = true;
+  despawnNightMobs();
+  // мир исчезает — остаётся лишь плоскость и куб травы
+  var i;
+  for (i=0;i<trees.length;i++) scene.remove(trees[i].g); trees = [];
+  for (i=0;i<rocks.length;i++) scene.remove(rocks[i].g); rocks = [];
+  for (i=0;i<builds.length;i++) scene.remove(builds[i].g); builds = [];
+  if (churchRef){ scene.remove(churchRef); churchRef = null; }
+  if (traderRef){ scene.remove(traderRef.g); traderRef = null; }
+  removeCat();
+  solids = []; wallColliders = []; rayList = [];
+  G.time = 14;
+  localStorage.removeItem(SAVE_KEY);
+  // куб травы перед игроком
+  var fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
+  grassCube = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.5), lamb(0x3fae2a));
+  grassCube.position.set(clamp(camera.position.x + fx*4, -MAP_BOUND, MAP_BOUND), 0.25,
+                         clamp(camera.position.z + fz*4, -MAP_BOUND, MAP_BOUND));
+  grassCube.userData.ent = {kind:'grass'};
+  scene.add(grassCube);
+  rayList.push(grassCube);
+  bigText('День 1000.', 5000, '');
+  msg('🌱 Всё исчезло. Осталась только трава.');
+}
+function showEnding(){
+  document.exitPointerLock && document.exitPointerLock();
+  closeAllOverlays();
+  $('endingOverlay').classList.remove('hidden');
+  G.overlayOpen = 'endingOverlay';
+}
+
+/* ============================== ОВЕРЛЕИ / UI-хелперы ============================== */
+var CLOSEABLE = {pause:true, inventory:true, craft:true, trade:true, mapOverlay:true, chestUI:true};
+function openOverlay(id){
+  if (G.overlayOpen) $(G.overlayOpen).classList.add('hidden');
+  G.overlayOpen = id;
+  $(id).classList.remove('hidden');
+  document.exitPointerLock && document.exitPointerLock();
+  if (id === 'inventory') renderInventory();
+  if (id === 'craft') renderCraft();
+  if (id === 'trade') renderTrade();
+  if (id === 'mapOverlay') drawMap();
+}
+function closeOverlay(){
+  if (!G.overlayOpen || !CLOSEABLE[G.overlayOpen]) return;
+  $(G.overlayOpen).classList.add('hidden');
+  G.overlayOpen = null;
+  currentChest = null;
+  if (G.mode === 'playing') lockPointer();
+}
+function closeAllOverlays(){
+  ['pause','inventory','craft','trade','mapOverlay','chestUI','death','endingOverlay'].forEach(function(id){
+    $(id).classList.add('hidden');
+  });
+  G.overlayOpen = null;
+}
+function toggleOverlay(id){
+  if (G.mode !== 'playing') return;
+  if (G.overlayOpen === id){ closeOverlay(); return; }
+  if (G.overlayOpen) return;
+  openOverlay(id);
+}
+function msg(t){
+  var box = $('messages');
+  while (box.children.length >= 5) box.removeChild(box.firstChild);
+  var d = document.createElement('div');
+  d.className = 'msg';
+  d.innerHTML = t;
+  box.appendChild(d);
+  setTimeout(function(){ if (d.parentNode) d.parentNode.removeChild(d); }, 3300);
+}
+var bigTextTO = null;
+function bigText(t, ms, cls){
+  var el = $('bigText');
+  el.className = cls || '';
+  el.textContent = t;
+  el.classList.add('show');
+  if (bigTextTO) clearTimeout(bigTextTO);
+  bigTextTO = setTimeout(function(){ el.classList.remove('show'); }, ms || 3000);
+}
+function updateHUD(){
+  $('dayText').textContent = 'День ' + G.day;
+  $('timeText').textContent = isDayNow() ? '☀️ День' : '🌑 Ночь';
+  $('barHp').style.width = clamp(player.hp, 0, 100) + '%';
+  $('barSt').style.width = clamp(player.stamina, 0, 100) + '%';
+  $('barSa').style.width = clamp(player.sanity, 0, 100) + '%';
+  $('barBa').style.width = clamp(player.battery, 0, 100) + '%';
+  if (G.dmgFlash > 0){
+    G.dmgFlash -= 0.02;
+    $('damageFlash').style.opacity = Math.max(0, G.dmgFlash);
+  }
+}
+
+/* ============================== POINTER LOCK / ВВОД ============================== */
+function lockPointer(){
+  var c = renderer.domElement;
+  var r = c.requestPointerLock && c.requestPointerLock();
+  if (r && r.catch) r.catch(function(){});
+}
+function initInput(){
+  var cnv = function(){ return renderer.domElement; };
+  document.addEventListener('keydown', function(e){
+    if (e.code === 'Tab' || e.code === 'Space') e.preventDefault();
+    keys[e.code] = true;
+    if (G.mode !== 'playing') return;
+    if (e.code === 'KeyI') toggleOverlay('inventory');
+    else if (e.code === 'KeyC') toggleOverlay('craft');
+    else if (e.code === 'Tab') toggleOverlay('mapOverlay');
+    else if (e.code === 'Escape'){
+      if (G.placement) cancelPlacement();
+      else if (G.overlayOpen && CLOSEABLE[G.overlayOpen]) closeOverlay();
+    }
+    else if (e.code === 'KeyF' && !G.overlayOpen){
+      if (player.flashlightOn){ setFlashlight(false); }
+      else if (player.battery > 0){ setFlashlight(true); }
+      else msg('🔦 Батарея пуста');
+    }
+    else if (e.code === 'KeyE' && !G.overlayOpen) interact();
+  });
+  document.addEventListener('keyup', function(e){ keys[e.code] = false; });
+  window.addEventListener('blur', function(){ keys = {}; });
+  document.addEventListener('mousemove', function(e){
+    if (document.pointerLockElement !== cnv()) return;
+    if (G.mode !== 'playing' || G.overlayOpen) return;
+    if (G.collFx.t > 0) return; // коллектор — управление потеряно
+    var inv = (player.invertT > 0 || G.whisper.invertT > 0) ? -1 : 1;
+    player.yaw   -= e.movementX * 0.0022 * inv;
+    player.pitch -= e.movementY * 0.0022 * inv;
+    player.pitch = clamp(player.pitch, -1.55, 1.55);
+  });
+  document.addEventListener('mousedown', function(e){
+    if (G.mode !== 'playing' || G.overlayOpen) return;
+    if (document.pointerLockElement !== cnv()){ lockPointer(); return; }
+    if (e.button === 0){
+      if (G.placement) confirmPlace();
+      else attack();
+    } else if (e.button === 2){
+      if (G.placement) cancelPlacement();
+    }
+  });
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  document.addEventListener('pointerlockchange', function(){
+    var locked = document.pointerLockElement === cnv();
+    if (!locked && G.mode === 'playing' && !G.overlayOpen){
+      if (G.placement){ cancelPlacement(); return; }
+      openOverlay('pause');
+    }
+  });
+}
+
+/* ============================== ОГОНЬ / ЧАСТИЦЫ ============================== */
+function updateFires(dt){
+  for (var i=builds.length-1;i>=0;i--){
+    var b = builds[i];
+    if (b.t !== 'fire') continue;
+    b.fuel -= dt;
+    b.light.intensity = 1.3 + Math.sin(G.elapsed*10 + i)*0.3;
+    b.pts.rotation.y += dt*2;
+    if (b.fuel <= 0){
+      msg('🔥 Костёр догорел');
+      removeBuild(b);
+    }
+  }
+  if (traderRef && traderRef.active){
+    traderRef.pts.rotation.y += dt*1.5;
+    traderRef.pts.position.y = Math.sin(G.elapsed*2)*0.15;
+    traderRef.light.intensity = 1.3 + Math.sin(G.elapsed*7)*0.3;
+  }
+}
+
+/* ============================== FPS ============================== */
+var fpsFrames = 0, fpsLast = performance.now();
+function fpsTick(now){
+  fpsFrames++;
+  if (now - fpsLast >= 1000){
+    $('fps').textContent = fpsFrames + ' FPS';
+    fpsFrames = 0; fpsLast = now;
+  }
+}
+
+/* ============================== ГЛАВНЫЙ ЦИКЛ ============================== */
+var lastT = performance.now();
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt = Math.min(0.1, (now - lastT)/1000);
+  lastT = now;
+  fpsTick(now);
+  if (G.mode === 'playing' && !G.overlayOpen){
+    G.elapsed += dt;
+    updatePlayer(dt);
+    updateDayNight(dt);
+    updateMobs(dt);
+    updateSanityFx(dt);
+    updateWhisper(dt);
+    updateCollectorFx(dt);
+    updateFires(dt);
+    updatePhantoms(dt);
+    updatePulses(dt);
+    if (G.placement) updateGhost();
+    if (G.hintLieT > 0) G.hintLieT -= dt;
+    updateHint(dt);
+    applyCameraFx(dt);
+    // карта — пассивное открытие тумана
+    fogTimer -= dt;
+    if (fogTimer <= 0){ fogTimer = 0.3; revealFog(); }
+  }
+  if (G.overlayOpen === 'mapOverlay') drawMap();
+  updateHUD();
+  renderer.render(scene, camera);
+}
+
+/* ============================== ЗАПУСК ============================== */
+function startGame(fromSave){
+  var saved = fromSave ? loadGameData() : null;
+  resetAll(saved);
+  closeAllOverlays();
+  $('menu').classList.add('hidden');
+  $('death').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  G.mode = 'playing';
+  G.overlayOpen = null;
+  updateHUD();
+  lockPointer();
+  if (saved) msg('📂 Сохранение загружено. День ' + G.day);
+  else msg('☀️ День 1. Руби 🪵, добывай 🪨, построй укрытие. Ночь близко...');
+  if (traderRef && traderRef.active) msg('💜 Торговец в лесу — ищи фиолетовый огонь');
+}
+function boot(){
+  $('btnContinue').disabled = !hasSave();
+  $('btnNew').onclick = function(){ startGame(false); };
+  $('btnContinue').onclick = function(){ if (hasSave()) startGame(true); };
+  $('btnResume').onclick = function(){ closeOverlay(); };
+  $('btnToMenu').onclick = function(){ location.reload(); };
+  $('btnLoadSave').onclick = function(){ if (hasSave()) startGame(true); };
+  $('btnRestart').onclick = function(){ startGame(false); };
+  $('btnThanks').onclick = function(){ localStorage.removeItem(SAVE_KEY); location.reload(); };
+  // мир для фона меню
+  resetAll(null);
+  G.mode = 'menu';
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('load', function(){
+  if (typeof THREE === 'undefined'){
+    document.body.innerHTML = '<div style="color:#fff;padding:40px;font-size:20px">Не удалось загрузить Three.js с CDN.<br>Проверь подключение к интернету и обнови страницу.</div>';
+    return;
+  }
+  initThree();
+  initColors();
+  initFog();
+  initInput();
+  boot();
+});
+</script>
+</body>
+</html>
