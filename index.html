@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="РАЗЛОМ — кооперативный хоррор-экстракшн. Войди в Зону. Принеси образцы. Выживи.">
+  <title>РАЗЛОМ · RIFT PROTOCOL</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%2306090c'/%3E%3Cpath d='M32 8 L52 52 L12 52 Z' fill='none' stroke='%2357d0c8' stroke-width='4'/%3E%3Ccircle cx='32' cy='38' r='5' fill='%23d05252'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./lib/three.module.js",
+      "three/addons/": "./lib/addons/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- 3D-сцена -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Плёночные эффекты поверх всего -->
+  <div id="fx-grain" aria-hidden="true"></div>
+  <div id="fx-vignette" aria-hidden="true"></div>
+  <div id="fx-scanlines" aria-hidden="true"></div>
+  <div id="fx-flash" aria-hidden="true"></div>
+  <div id="fx-distort" aria-hidden="true"></div>
+
+  <!-- ══════════ ГЛАВНОЕ МЕНЮ ══════════ -->
+  <section id="screen-menu" class="screen">
+    <div class="menu-bg" aria-hidden="true">
+      <div class="menu-fog fog-a"></div>
+      <div class="menu-fog fog-b"></div>
+      <div class="menu-glyph">⟁</div>
+    </div>
+    <header class="menu-header">
+      <div class="menu-tag mono">ОБЪЕКТ-9 // ЗОНА ОТЧУЖДЕНИЯ</div>
+      <h1 class="game-title" data-text="РАЗЛОМ">РАЗЛОМ</h1>
+      <div class="game-subtitle mono">RIFT&nbsp;PROTOCOL&nbsp;·&nbsp;VERTICAL&nbsp;SLICE&nbsp;v0.1</div>
+    </header>
+    <nav class="menu-nav">
+      <button class="btn btn-primary" id="btn-play"><span class="btn-key">[&nbsp;ENTER&nbsp;]</span> ВОЙТИ В ЗОНУ</button>
+      <button class="btn" id="btn-base"><span class="btn-key">[&nbsp;B&nbsp;]</span> БАЗА «КОВЧЕГ»</button>
+      <button class="btn" id="btn-settings"><span class="btn-key">[&nbsp;S&nbsp;]</span> НАСТРОЙКИ</button>
+      <button class="btn" id="btn-help"><span class="btn-key">[&nbsp;H&nbsp;]</span> УПРАВЛЕНИЕ</button>
+    </nav>
+    <footer class="menu-footer mono">
+      <span id="menu-profile">ОПЕРАТИВНИК #1 · УР. 1</span>
+      <span class="menu-warn">⚠ ПРОТОКОЛ: не доверяй отражениям. Не смотри на Пилигрима. Не верь тишине.</span>
+    </footer>
+  </section>
+
+  <!-- ══════════ БАЗА «КОВЧЕГ» ══════════ -->
+  <section id="screen-base" class="screen hidden">
+    <header class="base-header">
+      <div>
+        <div class="mono dim">УБЕЖИЩЕ · УРОВЕНЬ ЗАЩИТЫ 4</div>
+        <h2>БАЗА «КОВЧЕГ»</h2>
+      </div>
+      <div class="base-currency">
+        <div class="currency-box"><span class="dim mono">КРЕДИТЫ</span><strong id="base-credits">0</strong></div>
+        <div class="currency-box"><span class="dim mono">УРОВЕНЬ</span><strong id="base-level">1</strong></div>
+        <div class="currency-box"><span class="dim mono">ЗАХОДОВ</span><strong id="base-raids">0</strong></div>
+      </div>
+      <button class="btn btn-ghost" id="btn-base-back">← МЕНЮ</button>
+    </header>
+
+    <div class="base-grid">
+      <!-- Улучшения -->
+      <div class="base-panel">
+        <h3 class="panel-title">▣ МОДЕРНИЗАЦИЯ СНАРЯЖЕНИЯ</h3>
+        <div id="upgrade-list" class="upgrade-list"></div>
+      </div>
+
+      <!-- Досье -->
+      <div class="base-panel">
+        <h3 class="panel-title">▣ ДОСЬЕ ОБЪЕКТОВ</h3>
+        <div class="dossier-card">
+          <div class="dossier-head">
+            <span class="dossier-icon">◬</span>
+            <div>
+              <strong>«СЛЕПОЙ»</strong>
+              <div class="mono dim" id="dossier-tier">ДОСЬЕ: НЕ ИЗУЧЕНО</div>
+            </div>
+          </div>
+          <p class="dossier-text" id="dossier-text">
+            Данные отсутствуют. Проведите наблюдения в Зоне, чтобы восстановить файл.
+          </p>
+          <div class="progress"><div class="progress-fill" id="dossier-fill" style="width:0%"></div></div>
+          <div class="mono dim" id="dossier-progress-label">НАБЛЮДЕНИЯ: 0 / 30</div>
+        </div>
+        <div class="dossier-card locked" id="dossier-static">
+          <div class="dossier-head">
+            <span class="dossier-icon">◈</span>
+            <div>
+              <strong>«СТАТИК»</strong>
+              <div class="mono dim">ДОСЬЕ: ЗАШИФРОВАНО</div>
+            </div>
+          </div>
+          <p class="dossier-text dim">Файл повреждён. Требуется допуск ГЛУБИНА-2.</p>
+        </div>
+      </div>
+
+      <!-- Радио -->
+      <div class="base-panel">
+        <h3 class="panel-title">▣ РАДИОРАБКА · ЖУРНАЛ СИГНАЛОВ</h3>
+        <div id="radio-log" class="radio-log"></div>
+      </div>
+    </div>
+
+    <div class="base-footer">
+      <div class="difficulty">
+        <span class="dim mono">ПРОТОКОЛ:</span>
+        <button class="chip active" data-diff="normal">СТАНДАРТ</button>
+        <button class="chip" data-diff="deep">ГЛУБИНА<span class="chip-badge">+60%</span></button>
+      </div>
+      <button class="btn btn-primary btn-huge" id="btn-launch">▶ НАЧАТЬ ЗАХОД</button>
+    </div>
+  </section>
+
+  <!-- ══════════ HUD РЕЙДА ══════════ -->
+  <section id="screen-hud" class="screen hidden hud">
+    <div class="hud-top">
+      <div class="hud-objective">
+        <div class="mono dim">ЗАДАЧА</div>
+        <div id="hud-objective-text">Соберите образцы: <b>0 / 3</b></div>
+      </div>
+      <div class="hud-timer mono" id="hud-timer">00:00</div>
+      <div class="hud-status mono" id="hud-status">СИГНАЛ СТАБИЛЕН</div>
+    </div>
+
+    <div class="hud-crosshair"><span></span></div>
+    <div class="hud-prompt hidden" id="hud-prompt"><kbd>E</kbd> <span id="hud-prompt-text">подобрать</span></div>
+
+    <div class="hud-bottom-left">
+      <div class="stat-row">
+        <span class="stat-label mono">ЖИЗНЬ</span>
+        <div class="bar bar-hp"><div class="bar-fill" id="bar-hp"></div></div>
+        <span class="stat-val mono" id="val-hp">100</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label mono">ПСИХИКА</span>
+        <div class="bar bar-psy"><div class="bar-fill" id="bar-psy"></div></div>
+        <span class="stat-val mono" id="val-psy">100</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label mono">ВЫНОСЛ.</span>
+        <div class="bar bar-sta"><div class="bar-fill" id="bar-sta"></div></div>
+        <span class="stat-val mono" id="val-sta">100</span>
+      </div>
+    </div>
+
+    <div class="hud-bottom-right">
+      <div class="stat-row">
+        <span class="stat-label mono">АКБ</span>
+        <div class="bar bar-bat"><div class="bar-fill" id="bar-bat"></div></div>
+        <span class="stat-val mono" id="val-bat">100</span>
+      </div>
+      <div class="hud-items">
+        <div class="item-slot" id="slot-1"><kbd>1</kbd><span>АПТЕЧКА</span><em id="cnt-med">1</em></div>
+        <div class="item-slot" id="slot-2"><kbd>2</kbd><span>АКБ</span><em id="cnt-bat">1</em></div>
+        <div class="item-slot" id="slot-3"><kbd>3</kbd><span>ВСПЫШКА</span><em id="cnt-fla">1</em></div>
+      </div>
+    </div>
+
+    <div class="hud-noise mono" id="hud-noise">ШУМ ▁▁▁▁▁</div>
+  </section>
+
+  <!-- ══════════ ПАУЗА ══════════ -->
+  <section id="screen-pause" class="screen hidden overlay-screen">
+    <div class="overlay-box">
+      <h2>ПАУЗА</h2>
+      <p class="dim mono">СИГНАЛ ПРИОСТАНОВЛЕН</p>
+      <button class="btn btn-primary" id="btn-resume">ПРОДОЛЖИТЬ</button>
+      <button class="btn" id="btn-pause-settings">НАСТРОЙКИ</button>
+      <button class="btn btn-danger" id="btn-abandon">ПОКИНУТЬ ЗОНУ<span class="btn-note">потеря находок</span></button>
+    </div>
+  </section>
+
+  <!-- ══════════ РЕЗУЛЬТАТЫ ══════════ -->
+  <section id="screen-results" class="screen hidden overlay-screen">
+    <div class="overlay-box wide">
+      <h2 id="results-title">ЭВАКУАЦИЯ</h2>
+      <p class="mono" id="results-sub">ОБРАЗЦЫ ДОСТАВЛЕНЫ</p>
+      <div class="results-grid" id="results-grid"></div>
+      <button class="btn btn-primary" id="btn-results-continue">ПРОДОЛЖИТЬ</button>
+    </div>
+  </section>
+
+  <!-- ══════════ НАСТРОЙКИ ══════════ -->
+  <section id="screen-settings" class="screen hidden overlay-screen">
+    <div class="overlay-box">
+      <h2>НАСТРОЙКИ</h2>
+      <label class="setting-row">
+        <span>Громкость</span>
+        <input type="range" id="set-volume" min="0" max="100" value="80">
+        <em class="mono" id="set-volume-val">80</em>
+      </label>
+      <label class="setting-row">
+        <span>Чувствительность мыши</span>
+        <input type="range" id="set-sens" min="10" max="300" value="100">
+        <em class="mono" id="set-sens-val">1.00</em>
+      </label>
+      <label class="setting-row">
+        <span>Инверсия Y</span>
+        <input type="checkbox" id="set-inverty">
+        <em class="mono"></em>
+      </label>
+      <button class="btn btn-primary" id="btn-settings-back">Готово</button>
+    </div>
+  </section>
+
+  <!-- ══════════ УПРАВЛЕНИЕ ══════════ -->
+  <section id="screen-help" class="screen hidden overlay-screen">
+    <div class="overlay-box wide">
+      <h2>УПРАВЛЕНИЕ</h2>
+      <div class="help-grid mono">
+        <div><kbd>W A S D</kbd></div><div>движение</div>
+        <div><kbd>SHIFT</kbd></div><div>спринт (очень шумно)</div>
+        <div><kbd>C / CTRL</kbd></div><div>присесть (тихо)</div>
+        <div><kbd>F</kbd></div><div>фонарь</div>
+        <div><kbd>E</kbd></div><div>взаимодействие / эвакуация</div>
+        <div><kbd>1</kbd></div><div>аптечка</div>
+        <div><kbd>2</kbd></div><div>заряд АКБ</div>
+        <div><kbd>3</kbd></div><div>светошумовая (оглушает «Слепого»)</div>
+        <div><kbd>ESC</kbd></div><div>пауза</div>
+      </div>
+      <p class="help-tip warn">⚠ «Слепой» не видит — он слышит. Бег — это крик. Тишина — это жизнь.</p>
+      <button class="btn btn-primary" id="btn-help-back">Понятно</button>
+    </div>
+  </section>
+
+  <div id="fatal-error" class="hidden"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+# Зависимости (для разработки)
+node_modules/
+
+# Кэши и сборки
+.cache/
+dist/
+*.log
+.DS_Store
